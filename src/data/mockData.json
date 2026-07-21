@@ -1,0 +1,27 @@
+{
+  "klienci": [
+    { "nip": "", "nazwa": "", "cennik": "", "procentRabatu": 5 },
+    { "nip": "5261040828", "nazwa": "Firma A", "procentRabatu": 10 },
+    { "nip": "7740001454", "nazwa": "Firma B", "procentRabatu": 15 }
+  ],
+  "cenniki": [
+    { "cennik": "PODSTAWOWY", "rodzaj": "VSG", "produkt": "VSG 6mm", "odM2": 1, "doM2": 50, "cena": 95 },
+    { "cennik": "PODSTAWOWY", "rodzaj": "VSG", "produkt": "VSG 8mm", "odM2": 1, "doM2": 50, "cena": 110 },
+    { "cennik": "PODSTAWOWY", "rodzaj": "VSG", "produkt": "VSG 10mm", "odM2": 1, "doM2": 50, "cena": 125 },
+    { "cennik": "PODSTAWOWY", "rodzaj": "ESG", "produkt": "ESG 6mm", "odM2": 1, "doM2": 50, "cena": 85 },
+    { "cennik": "PODSTAWOWY", "rodzaj": "ESG", "produkt": "ESG 8mm", "odM2": 1, "doM2": 50, "cena": 98 },
+    { "cennik": "PODSTAWOWY", "rodzaj": "ESG", "produkt": "ESG 10mm", "odM2": 1, "doM2": 50, "cena": 112 },
+    { "cennik": "A", "rodzaj": "VSG", "produkt": "VSG 6mm", "odM2": 1, "doM2": 50, "cena": 90 },
+    { "cennik": "A", "rodzaj": "VSG", "produkt": "VSG 8mm", "odM2": 1, "doM2": 50, "cena": 105 },
+    { "cennik": "VIP", "rodzaj": "ESG", "produkt": "ESG 6mm", "odM2": 1, "doM2": 50, "cena": 80 }
+  ],
+  "dodatki": [
+    { "dodatek": "Brak", "cena": 0 },
+    { "dodatek": "Szlif", "cena": 15 },
+    { "dodatek": "Hartowanie", "cena": 25 }
+  ],
+  "tryby": [
+    { "tryb": "Standard", "procent": 0 },
+    { "tryb": "Szybki", "procent": 15 }
+  ]
+}
