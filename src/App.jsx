@@ -17,6 +17,7 @@ import { buildOrderPayload } from './utils/buildOrderPayload'
 import { calcAreaM2, calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc } from './utils/dimensions'
 import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
+import { BINGLASS_LOGO_URL } from './constants'
 import './App.css'
 
 const COLUMNS = [
@@ -556,7 +557,13 @@ function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-icon" aria-hidden="true">B</div>
+          <img
+            src={BINGLASS_LOGO_URL}
+            alt="Binglass"
+            className="brand-logo"
+            width={44}
+            height={44}
+          />
           <div className="brand-text">
             <h1>Cennik Binglass</h1>
             <p className="subtitle">Kalkulator cen na podstawie NIP i powierzchni</p>
