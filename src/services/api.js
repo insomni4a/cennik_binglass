@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL
 export const API_URL_DISPLAY = API_URL
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true' || !API_URL
-export const EXPECTED_API_VERSION = 2
+export const EXPECTED_API_VERSION = 3
 
 function apiUrl(params) {
   const query = new URLSearchParams({ ...params, _: String(Date.now()) })

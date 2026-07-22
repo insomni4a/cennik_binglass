@@ -478,7 +478,7 @@ function App() {
             <li>Zapisz (Ctrl+S)</li>
             <li><strong>Wdróż → Zarządzaj wdrożeniami</strong> → ołówek przy Web App</li>
             <li>W polu „Wersja” wybierz <strong>Nowa wersja</strong> → Wdróż</li>
-            <li>Otwórz link testowy poniżej — musi być <code>&quot;version&quot;: 2</code></li>
+            <li>Otwórz link testowy poniżej — musi być <code>&quot;version&quot;: 3</code></li>
           </ol>
           <p className="api-url">
             Test w przeglądarce:{' '}
@@ -487,7 +487,7 @@ function App() {
             </a>
           </p>
           <p>
-            Oczekiwany wynik zaczyna się od: <code>{'{"version":2,"cenniki":[...'}</code>
+            Oczekiwany wynik zaczyna się od: <code>{'{"version":3,"cenniki":[...'}</code>
             <br />
             Twój obecny wynik: tylko <code>{'{"cenniki":[...'}</code> bez <code>version</code> i bez{' '}
             <code>rodzaj</code> — to <strong>stary skrypt</strong>.
