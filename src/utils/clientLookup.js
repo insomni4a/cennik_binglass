@@ -96,7 +96,6 @@ export function enrichClientProfile(client, history = {}) {
     orderCount,
     found,
     hasOrders,
-    isReturning: found || hasOrders,
     lastEmail: history.lastEmail ?? client.lastEmail ?? '',
     lastTelefon: history.lastTelefon ?? client.lastTelefon ?? '',
   }

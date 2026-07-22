@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import {
   getRodzaje,
   getProduktyForRodzaj,
@@ -10,7 +10,7 @@ import {
 } from './services/pricingService'
 import { loadCatalog, lookupClient, USE_MOCK, USE_SHEET } from './services/dataService'
 import { submitOrderWithEmail } from './services/orderService'
-import { fetchApiRaw, API_URL_DISPLAY } from './services/api'
+import { fetchApiRaw } from './services/api'
 import { validateNip, formatNip } from './utils/nipValidation'
 import { validateEmail, validatePhone, formatPhone } from './utils/contactValidation'
 import { buildOrderPayload } from './utils/buildOrderPayload'
@@ -19,6 +19,8 @@ import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile } from './
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
 import { BINGLASS_LOGO_URL } from './constants'
 import './App.css'
+
+const ApiStaleWarning = lazy(() => import('./components/ApiStaleWarning.jsx'))
 
 const COLUMNS = [
   { key: 'rodzaj', label: 'Rodzaj' },
@@ -632,63 +634,14 @@ function App() {
         </div>
       )}
       {apiStale && !USE_SHEET && (
-        <div className="card api-warning" role="alert">
-          <p>
-            <strong>Stara wersja API</strong> — wdrożony skrypt nie został jeszcze zaktualizowany.
-            Kod w arkuszu jest OK, ale <strong>URL Web App nadal serwuje starą wersję</strong>.
-          </p>
-          <ol className="api-steps">
-            <li>Arkusz → <strong>Rozszerzenia → Apps Script</strong></li>
-            <li>Usuń cały stary kod, wklej plik <code>google-apps-script/Code.gs</code></li>
-            <li>Zapisz (Ctrl+S)</li>
-            <li><strong>Wdróż → Zarządzaj wdrożeniami</strong> → ołówek przy Web App</li>
-            <li>W polu „Wersja” wybierz <strong>Nowa wersja</strong> → Wdróż</li>
-            <li>Otwórz link testowy poniżej — musi być <code>&quot;version&quot;: 3</code> i{' '}
-            <code>&quot;clientRegisterOnOrder&quot;: true</code></li>
-          </ol>
-          <p className="api-url">
-            Test w przeglądarce:{' '}
-            <a href={`${API_URL_DISPLAY}?action=cenniki`} target="_blank" rel="noreferrer">
-              {API_URL_DISPLAY}?action=cenniki
-            </a>
-          </p>
-          <p>
-            Oczekiwany wynik zaczyna się od:{' '}
-            <code>{'{"version":3,"clientRegisterOnOrder":true,"cenniki":[...'}</code>
-            <br />
-            Twój obecny wynik: tylko <code>{'{"cenniki":[...'}</code> bez <code>version</code> i bez{' '}
-            <code>rodzaj</code> — to <strong>stary skrypt</strong>.
-          </p>
-          <p>
-            <strong>Szybkie obejście:</strong> udostępnij arkusz („Każdy z linkiem” →
-            Przeglądający) i dodaj ID arkusza do <code>.env</code>:
-          </p>
-          <pre className="api-diag env-example">VITE_SHEET_ID=ID_Z_ADRESU_ARKUSZA</pre>
-          <p className="api-url-hint">
-            ID to fragment z URL:{' '}
-            <code>docs.google.com/spreadsheets/d/<strong>TO_JEST_ID</strong>/edit</code>
-          </p>
-          <p>
-            <strong>Jeśli „Nowa wersja” nie pomaga:</strong> Wdróż → <strong>Nowe wdrożenie</strong>{' '}
-            → Aplikacja internetowa → skopiuj <strong>nowy URL</strong> do <code>VITE_API_URL</code>.
-          </p>
-          <div className="api-warning-actions">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={fetchCatalogData}>
-              Sprawdź ponownie
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={runApiDiagnostic}
-              disabled={apiDiagLoading}
-            >
-              {apiDiagLoading ? 'Testuję…' : 'Pokaż odpowiedź API'}
-            </button>
-          </div>
-          {apiDiag && (
-            <pre className="api-diag">{JSON.stringify(apiDiag, null, 2)}</pre>
-          )}
-        </div>
+        <Suspense fallback={null}>
+          <ApiStaleWarning
+            apiDiag={apiDiag}
+            apiDiagLoading={apiDiagLoading}
+            onRefresh={fetchCatalogData}
+            onRunDiagnostic={runApiDiagnostic}
+          />
+        </Suspense>
       )}
 
       <section className="card">

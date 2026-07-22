@@ -1,6 +1,4 @@
-import mockData from '../data/mockData.json'
 import { DEFAULT_CENNIK } from '../constants'
-import { parseKlienciRows, resolveClientFromKlienci } from '../utils/clientLookup'
 
 export { DEFAULT_CENNIK }
 export const DEFAULT_RODZAJ = 'Ogólny'
@@ -130,55 +128,4 @@ export function calculateLinePrice(
 export function getTrybProcent(tryby, trybName) {
   const row = tryby.find((t) => t.tryb === trybName)
   return row ? Number(row.procent) : 0
-}
-
-export function calculateOrderTotal(subtotal, tryby, trybName) {
-  const procent = getTrybProcent(tryby, trybName)
-  const surcharge = subtotal * (procent / 100)
-  return {
-    subtotal,
-    tryb: trybName,
-    procent,
-    surcharge,
-    total: subtotal + surcharge,
-  }
-}
-
-export function distributeTrybToLines(lineTotals, orderTotal) {
-  const subtotal = lineTotals.reduce((sum, v) => sum + v, 0)
-  if (subtotal === 0) return lineTotals.map(() => 0)
-  return lineTotals.map((line) => (line / subtotal) * orderTotal.total)
-}
-
-// --- Mock (offline) ---
-
-export function mockFindClientByNip(nip) {
-  const col = (row, ...names) => {
-    for (const name of names) {
-      if (row[name] !== undefined && row[name] !== '') return row[name]
-    }
-    return ''
-  }
-  const parsed = parseKlienciRows(mockData.klienci, col)
-  return resolveClientFromKlienci(nip, parsed)
-}
-
-export function mockGetCatalog() {
-  return normalizeCatalog({
-    version: 2,
-    cenniki: mockData.cenniki,
-    dodatki: mockData.dodatki,
-    tryby: mockData.tryby,
-  })
-}
-
-export async function mockFetchClient(nip) {
-  const client = mockFindClientByNip(nip)
-  return { ...client, cennik: DEFAULT_CENNIK }
-}
-
-export async function mockSubmitOrder(order) {
-  await new Promise((r) => setTimeout(r, 500))
-  console.info('Mock zamówienie:', order)
-  return { success: true, emailSent: false, message: 'Zamówienie zapisane (mock)' }
 }

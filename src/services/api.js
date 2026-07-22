@@ -78,7 +78,3 @@ export async function submitOrder(order) {
   }
   return data
 }
-
-export function supportsOrderEmailApi(data) {
-  return Number(data?.version) >= 3 && data?.orderEmail === true
-}
