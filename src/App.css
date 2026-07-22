@@ -88,6 +88,13 @@
   color: var(--text-secondary);
 }
 
+.card-title-required {
+  margin-left: 0.5rem;
+  color: #dc2626;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
 /* ── Klient / NIP ── */
 
 .client-section {
@@ -105,7 +112,14 @@
   margin-bottom: 0;
 }
 
+.client-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--client-field-gap);
+}
+
 .client-section .nip-group label,
+.client-section .company-group label,
 .client-section .order-field label {
   display: block;
   margin-bottom: 0.4rem;
@@ -115,6 +129,7 @@
 }
 
 .client-section .nip-group input,
+.client-section .company-group input,
 .client-section .order-field input {
   width: 100%;
   padding: 0.7rem 1rem;
@@ -129,11 +144,34 @@
 }
 
 .client-section .nip-group input:focus,
+.client-section .company-group input:focus,
 .client-section .order-field input:focus {
   outline: none;
   border-color: var(--border-focus);
   background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+.client-banner {
+  width: 100%;
+  padding: 0.9rem 1.25rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.client-banner--welcome {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+}
+
+.client-banner--thanks {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.22);
 }
 
 /* ── Product table ── */
@@ -895,11 +933,11 @@
     gap: 0.65rem;
   }
 
-  .result-table-row--header {
-    display: none;
+  .result-table-row.result-table-row--header {
+    display: none !important;
   }
 
-  .result-table-row {
+  .result-table-row:not(.result-table-row--header) {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -912,7 +950,7 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .result-table-row:last-child {
+  .result-table-row:not(.result-table-row--header):last-child {
     margin-bottom: 0;
   }
 

@@ -15,7 +15,7 @@ import { validateNip, formatNip } from './utils/nipValidation'
 import { validateEmail, validatePhone, formatPhone } from './utils/contactValidation'
 import { buildOrderPayload } from './utils/buildOrderPayload'
 import { calcAreaM2, calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc } from './utils/dimensions'
-import { applyRabatToTotal, enrichItemsWithRabat } from './utils/clientLookup'
+import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
 import './App.css'
 
@@ -73,7 +73,9 @@ function App() {
   const [apiDiagLoading, setApiDiagLoading] = useState(false)
 
   const [nip, setNip] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [nipTouched, setNipTouched] = useState(false)
+  const [companyNameTouched, setCompanyNameTouched] = useState(false)
   const [lines, setLines] = useState([])
   const [quote, setQuote] = useState(null)
   const [error, setError] = useState('')
@@ -84,8 +86,11 @@ function App() {
   const [orderEmail, setOrderEmail] = useState('')
   const [orderTouched, setOrderTouched] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState('')
+  const [clientProfile, setClientProfile] = useState(null)
+  const [orderThankYou, setOrderThankYou] = useState(false)
 
   const nipValidation = nipTouched || nip.length > 0 ? validateNip(nip) : { valid: true }
+  const companyNameValid = companyName.trim().length > 0
   const emailValidation = orderTouched || orderEmail.length > 0 ? validateEmail(orderEmail) : { valid: true }
   const phoneValidation = orderTouched || orderPhone.length > 0 ? validatePhone(orderPhone) : { valid: true }
 
@@ -152,10 +157,29 @@ function App() {
     setOrderEmail('')
     setOrderTouched(false)
     setError('')
-    setLines((prev) => prev.map((line) => ({ ...line, cena: null })))
+    setLines((prev) => prev.map((line) => ({ ...line, cena: null, cenaPoRabacie: null })))
   }
 
-  const handleResetCennik = () => {
+  const refreshClientProfile = async (normalizedNip) => {
+    try {
+      const client = await lookupClient(normalizedNip)
+      const profile = enrichClientProfile(client)
+      setClientProfile(profile)
+      if (profile.nazwa && profile.nazwa !== 'Nieznany klient') {
+        setCompanyName(profile.nazwa)
+      }
+    } catch {
+      setClientProfile(null)
+    }
+  }
+
+  const withCurrentCompanyName = (currentQuote) => {
+    if (!currentQuote) return null
+    const name = companyName.trim()
+    return name ? { ...currentQuote, companyName: name } : currentQuote
+  }
+
+  const resetCennikAfterOrder = () => {
     const defaultTryb = tryby[0]?.tryb ?? ''
     setLines([createLine(cenniki, dodatki, null, defaultTryb)])
     setQuote(null)
@@ -168,12 +192,46 @@ function App() {
     setError('')
   }
 
+  const handleResetCennik = () => {
+    const defaultTryb = tryby[0]?.tryb ?? ''
+    setLines([createLine(cenniki, dodatki, null, defaultTryb)])
+    setQuote(null)
+    setOfferSuccess('')
+    setOrderSuccess('')
+    setShowOrderForm(false)
+    setOrderPhone('')
+    setOrderEmail('')
+    setOrderTouched(false)
+    setCompanyName('')
+    setCompanyNameTouched(false)
+    setError('')
+  }
+
   const handleNipChange = (value) => {
     setNip(value.replace(/\D/g, '').slice(0, 10))
+    setCompanyName('')
+    setCompanyNameTouched(false)
+    setClientProfile(null)
+    setOrderThankYou(false)
     clearQuote()
   }
 
-  const handleNipBlur = () => setNipTouched(true)
+  const handleCompanyNameChange = (value) => {
+    setCompanyName(value)
+    setQuote(null)
+    setOfferSuccess('')
+    setError('')
+  }
+
+  const handleNipBlur = async () => {
+    setNipTouched(true)
+    const nipResult = validateNip(nip)
+    if (nipResult.valid) {
+      await refreshClientProfile(nipResult.normalized)
+    } else {
+      setClientProfile(null)
+    }
+  }
 
   const updateLine = (id, updates) => {
     setLines((prev) =>
@@ -215,10 +273,17 @@ function App() {
     setQuote(null)
     setOfferSuccess('')
     setNipTouched(true)
+    setCompanyNameTouched(true)
 
     const nipResult = validateNip(nip)
     if (!nipResult.valid) {
       setError(nipResult.message)
+      return
+    }
+
+    const trimmedCompanyName = companyName.trim()
+    if (!trimmedCompanyName) {
+      setError('Podaj nazwę firmy.')
       return
     }
 
@@ -244,7 +309,8 @@ function App() {
 
     setLoading(true)
     try {
-      const client = await lookupClient(nipResult.normalized)
+      const client = enrichClientProfile(await lookupClient(nipResult.normalized))
+      setClientProfile(client)
       const updatedLines = [...lines]
       const items = []
       let subtotal = 0
@@ -312,7 +378,7 @@ function App() {
       )
       setQuote({
         nip: client.nip,
-        companyName: client.nazwa,
+        companyName: trimmedCompanyName,
         cennik: DEFAULT_CENNIK,
         procentRabatu: client.procentRabatu,
         found: client.found,
@@ -333,8 +399,15 @@ function App() {
   }
 
   const handleGenerateOffer = async () => {
-    if (!quote) {
+    const exportQuote = withCurrentCompanyName(quote)
+    if (!exportQuote) {
       setError('Najpierw oblicz cenę.')
+      return
+    }
+
+    if (!exportQuote.companyName?.trim()) {
+      setCompanyNameTouched(true)
+      setError('Podaj nazwę firmy.')
       return
     }
 
@@ -351,8 +424,8 @@ function App() {
 
     try {
       const { generateOfferPdf: generatePdf } = await import('./utils/generateOfferPdf')
-      await generatePdf(quote, pdfWindow)
-      setOfferSuccess(`Oferta PDF dla ${quote.companyName} otwarta w nowej karcie.`)
+      await generatePdf(exportQuote, pdfWindow)
+      setOfferSuccess(`Oferta PDF dla ${exportQuote.companyName} otwarta w nowej karcie.`)
     } catch (err) {
       pdfWindow.close()
       setError(err.message || 'Nie udało się wygenerować oferty PDF.')
@@ -368,12 +441,31 @@ function App() {
     }
     setError('')
     setOrderSuccess('')
+    setOrderThankYou(false)
+
+    if (clientProfile?.lastTelefon) {
+      setOrderPhone(clientProfile.lastTelefon)
+    }
+    if (clientProfile?.lastEmail) {
+      setOrderEmail(clientProfile.lastEmail)
+    }
+
     setShowOrderForm(true)
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
   }
 
   const handleSubmitOrder = async () => {
-    if (!quote) {
+    const exportQuote = withCurrentCompanyName(quote)
+    if (!exportQuote) {
       setError('Najpierw oblicz cenę.')
+      return
+    }
+
+    if (!exportQuote.companyName?.trim()) {
+      setCompanyNameTouched(true)
+      setError('Podaj nazwę firmy.')
       return
     }
 
@@ -395,17 +487,24 @@ function App() {
     setLoading(true)
     try {
       const result = await submitOrderWithEmail(
-        buildOrderPayload(quote, {
+        buildOrderPayload(exportQuote, {
           email: emailResult.normalized,
           telefon: phoneResult.normalized,
         })
       )
 
-      setOrderSuccess(result.message)
-      setShowOrderForm(false)
-      setOrderPhone('')
-      setOrderEmail('')
-      setOrderTouched(false)
+      resetCennikAfterOrder()
+      setOrderThankYou(true)
+
+      const nipResult = validateNip(nip)
+      if (nipResult.valid) {
+        await refreshClientProfile(nipResult.normalized)
+      }
+
+      const customerNote = result.customerEmailSent
+        ? ' Na Twój adres e-mail wysłaliśmy potwierdzenie zamówienia.'
+        : ''
+      setOrderSuccess(`${result.message}${customerNote}`)
     } catch (err) {
       setError(err.message || 'Nie udało się złożyć zamówienia. Spróbuj ponownie.')
     } finally {
@@ -445,6 +544,12 @@ function App() {
 
   const rodzaje = getRodzaje(cenniki)
   const dodatkiList = getDodatkiList(dodatki)
+  const welcomeCompanyName =
+    companyName.trim() ||
+    (clientProfile?.nazwa && clientProfile.nazwa !== 'Nieznany klient'
+      ? clientProfile.nazwa
+      : quote?.companyName)
+  const showWelcomeBanner = Boolean(clientProfile?.hasOrders && welcomeCompanyName)
 
   return (
     <div className="app-shell">
@@ -466,6 +571,11 @@ function App() {
       </header>
 
       <main className="main-content">
+      {showWelcomeBanner && (
+        <div className="client-banner client-banner--welcome" role="status">
+          Witaj ponownie {welcomeCompanyName}
+        </div>
+      )}
       {apiStale && !USE_SHEET && (
         <div className="card api-warning" role="alert">
           <p>
@@ -527,23 +637,42 @@ function App() {
       <section className="card">
         <h2 className="card-title">Klient</h2>
         <div className="client-section">
-          <div className="nip-group client-field">
-            <label htmlFor="nip">NIP firmy</label>
-            <input
-              id="nip"
-              type="text"
-              inputMode="numeric"
-              value={formatNip(nip)}
-              onChange={(e) => handleNipChange(e.target.value)}
-              onBlur={handleNipBlur}
-              placeholder="np. 123-456-78-90"
-              disabled={loading}
-              className={nipTouched && !nipValidation.valid ? 'input-error' : ''}
-              aria-invalid={nipTouched && !nipValidation.valid}
-            />
-            {nipTouched && !nipValidation.valid && (
-              <span className="field-error">{nipValidation.message}</span>
-            )}
+          <div className="client-field-stack client-field">
+            <div className="nip-group">
+              <label htmlFor="nip">NIP firmy</label>
+              <input
+                id="nip"
+                type="text"
+                inputMode="numeric"
+                value={formatNip(nip)}
+                onChange={(e) => handleNipChange(e.target.value)}
+                onBlur={handleNipBlur}
+                placeholder="np. 123-456-78-90"
+                disabled={loading}
+                className={nipTouched && !nipValidation.valid ? 'input-error' : ''}
+                aria-invalid={nipTouched && !nipValidation.valid}
+              />
+              {nipTouched && !nipValidation.valid && (
+                <span className="field-error">{nipValidation.message}</span>
+              )}
+            </div>
+            <div className="company-group">
+              <label htmlFor="company-name">Nazwa firmy</label>
+              <input
+                id="company-name"
+                type="text"
+                value={companyName}
+                onChange={(e) => handleCompanyNameChange(e.target.value)}
+                onBlur={() => setCompanyNameTouched(true)}
+                placeholder="np. Binglass Sp. z o.o."
+                disabled={loading}
+                className={companyNameTouched && !companyNameValid ? 'input-error' : ''}
+                aria-invalid={companyNameTouched && !companyNameValid}
+              />
+              {companyNameTouched && !companyNameValid && (
+                <span className="field-error">Podaj nazwę firmy.</span>
+              )}
+            </div>
           </div>
 
           {showOrderForm && quote && (
@@ -611,8 +740,17 @@ function App() {
         </div>
       </section>
 
+      {orderThankYou && (
+        <div className="client-banner client-banner--thanks" role="status">
+          Dziękujemy za złożenie zamówienia, czy chcesz coś jeszcze wycenić?
+        </div>
+      )}
+
       <section className="card">
-        <h2 className="card-title">Pozycje</h2>
+        <h2 className="card-title">
+          Pozycje
+          <span className="card-title-required">(WSZYSTKIE POLA WYMAGANE)</span>
+        </h2>
         <div className="table-scroll">
           <div className="product-table">
             <div className="product-row product-row--header">
@@ -835,7 +973,9 @@ function App() {
             <div className="result-meta-bar">
               <div className="result-meta-item">
                 <span className="result-meta-label">Klient</span>
-                <span className="result-meta-value">{quote.companyName}</span>
+                <span className="result-meta-value">
+                  {companyName.trim() || quote.companyName}
+                </span>
               </div>
               <div className="result-meta-item">
                 <span className="result-meta-label">NIP</span>

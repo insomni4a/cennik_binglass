@@ -63,6 +63,41 @@ export function resolveClientFromKlienci(nip, parsed) {
   }
 }
 
+export function parseOrderHistoryFromRows(rows, nip, colFn) {
+  const normalized = String(nip).replace(/\D/g, '')
+  let orderCount = 0
+  let lastEmail = ''
+  let lastTelefon = ''
+  let lastRowIndex = -1
+
+  rows.forEach((row, index) => {
+    const rowNip = String(colFn(row, 'NIP', 'nip')).replace(/\D/g, '')
+    if (rowNip !== normalized) return
+
+    orderCount++
+    if (index >= lastRowIndex) {
+      lastRowIndex = index
+      const email = String(colFn(row, 'E-mail', 'Email', 'email')).trim()
+      const telefon = String(colFn(row, 'Telefon', 'telefon', 'Phone')).trim()
+      if (email) lastEmail = email
+      if (telefon) lastTelefon = telefon
+    }
+  })
+
+  return { orderCount, lastEmail, lastTelefon }
+}
+
+export function enrichClientProfile(client, history = {}) {
+  const orderCount = Number(history.orderCount ?? client.orderCount) || 0
+  return {
+    ...client,
+    orderCount,
+    hasOrders: orderCount > 0 || Boolean(client.hasOrders),
+    lastEmail: history.lastEmail ?? client.lastEmail ?? '',
+    lastTelefon: history.lastTelefon ?? client.lastTelefon ?? '',
+  }
+}
+
 export function applyRabatToLine(lineTotal, procentRabatu) {
   const gross = Number(lineTotal) || 0
   const rabat = Number(procentRabatu) || 0

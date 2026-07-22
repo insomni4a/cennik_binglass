@@ -9,6 +9,25 @@ function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
 }
 
+const PRICE_GREEN = '#047857'
+
+function greenArrowCanvas() {
+  return {
+    canvas: [
+      { type: 'line', x1: 0, y1: 5, x2: 12, y2: 5, lineWidth: 1.4, lineColor: PRICE_GREEN },
+      { type: 'line', x1: 12, y1: 5, x2: 8, y2: 2, lineWidth: 1.4, lineColor: PRICE_GREEN },
+      { type: 'line', x1: 12, y1: 5, x2: 8, y2: 8, lineWidth: 1.4, lineColor: PRICE_GREEN },
+    ],
+    width: 14,
+    height: 10,
+    margin: [4, 2, 4, 0],
+  }
+}
+
+function priceAfterRabatText(value) {
+  return { text: formatMoney(value), color: PRICE_GREEN, bold: true }
+}
+
 function formatDate() {
   return new Date().toLocaleString('pl-PL', {
     year: 'numeric',
@@ -83,10 +102,21 @@ function buildGlassDrawing(item, index) {
       {
         text:
           item.lineTotalAfterRabat != null && item.lineTotalAfterRabat !== item.lineTotal
-            ? `Cena: ${formatMoney(item.lineTotal)} → ${formatMoney(item.lineTotalAfterRabat)}`
+            ? {
+                columns: [
+                  { text: `Cena: ${formatMoney(item.lineTotal)}`, fontSize: 9, width: 'auto' },
+                  greenArrowCanvas(),
+                  {
+                    ...priceAfterRabatText(item.lineTotalAfterRabat),
+                    fontSize: 9,
+                    width: 'auto',
+                  },
+                ],
+                columnGap: 2,
+              }
             : `Cena pozycji: ${formatMoney(item.lineTotal)}`,
         fontSize: 9,
-        bold: true,
+        bold: item.lineTotalAfterRabat == null || item.lineTotalAfterRabat === item.lineTotal,
         margin: [0, 2, 0, 0],
       },
     ],
@@ -135,7 +165,13 @@ export function buildOfferDocDefinition(quote) {
       `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
       { text: formatMoney(item.lineTotal), alignment: 'right' },
       ...(hasRabat
-        ? [{ text: formatMoney(item.lineTotalAfterRabat ?? item.lineTotal), alignment: 'right', bold: true }]
+        ? [
+            {
+              text: formatMoney(item.lineTotalAfterRabat ?? item.lineTotal),
+              alignment: 'right',
+              style: 'priceGreen',
+            },
+          ]
         : []),
     ]),
   ]
@@ -149,6 +185,7 @@ export function buildOfferDocDefinition(quote) {
       subtitle: { fontSize: 11, color: '#666', margin: [0, 4, 0, 0] },
       section: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 16, 0, 8] },
       tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
+      priceGreen: { color: PRICE_GREEN, bold: true },
       drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
       total: { fontSize: 14, bold: true, color: '#166534' },
       footer: { fontSize: 8, color: '#888', italics: true },
@@ -255,7 +292,12 @@ export function buildOfferDocDefinition(quote) {
               {
                 columns: [
                   { text: 'RAZEM:', bold: true, width: '*' },
-                  { text: formatMoney(quote.totalPrice), alignment: 'right', width: 80, bold: true },
+                  {
+                    text: formatMoney(quote.totalPrice),
+                    alignment: 'right',
+                    width: 80,
+                    style: hasRabat ? 'priceGreen' : 'total',
+                  },
                 ],
                 margin: [0, 4, 0, 0],
               },

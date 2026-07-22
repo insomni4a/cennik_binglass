@@ -15,6 +15,7 @@ export async function submitOrderWithEmail(order) {
     return {
       saved: true,
       emailSent: true,
+      customerEmailSent: Boolean(apiResult.customerEmailSent),
       message: apiResult.message || 'Zamówienie złożone i wysłane e-mailem.',
       via: 'api',
     }

@@ -15,6 +15,8 @@ const SHEET_NAMES = {
 }
 
 const DEFAULT_CENNIK = 'PODSTAWOWY'
+const NEW_CLIENT_FROM_ORDER_CENNIK = 'podstawowy'
+const NEW_CLIENT_FROM_ORDER_RABAT = 25
 const API_VERSION = 3
 const ORDER_NOTIFY_EMAIL = 'kaleb.binglass@gmail.com'
 
@@ -80,9 +82,12 @@ function doPost(e) {
 
     var emailSent = false
     var emailError = ''
+    var customerEmailSent = false
+    var customerEmailError = ''
 
     try {
       saveOrder(data)
+      ensureClientRegisteredFromOrder(data)
     } catch (saveErr) {
       throw new Error('Zapis zamówienia: ' + String(saveErr.message || saveErr))
     }
@@ -94,6 +99,13 @@ function doPost(e) {
       } catch (mailErr) {
         emailError = String(mailErr.message || mailErr)
       }
+
+      try {
+        sendCustomerConfirmationEmail(data)
+        customerEmailSent = true
+      } catch (customerMailErr) {
+        customerEmailError = String(customerMailErr.message || customerMailErr)
+      }
     } else {
       emailError = 'Brak danych do wysyłki e-mail (email lub telefon).'
     }
@@ -101,7 +113,9 @@ function doPost(e) {
     return jsonResponse({
       success: true,
       emailSent: emailSent,
+      customerEmailSent: customerEmailSent,
       emailError: emailError || null,
+      customerEmailError: customerEmailError || null,
       message: emailSent
         ? 'Zamówienie złożone i wysłane e-mailem'
         : 'Zamówienie zapisane, ale e-mail nie został wysłany',
@@ -112,6 +126,65 @@ function doPost(e) {
 }
 
 // --- Klienci ---
+
+function withOrderHistory(clientInfo) {
+  var history = getOrderHistoryForNip(clientInfo.nip)
+  return {
+    nip: clientInfo.nip,
+    nazwa: clientInfo.nazwa,
+    procentRabatu: clientInfo.procentRabatu,
+    cennik: clientInfo.cennik,
+    found: clientInfo.found,
+    orderCount: history.orderCount,
+    hasOrders: history.orderCount > 0,
+    lastEmail: history.lastEmail,
+    lastTelefon: history.lastTelefon,
+  }
+}
+
+function getOrderHistoryForNip(nip) {
+  try {
+    const sheet = getSheet(SHEET_NAMES.ZAMOWIENIA)
+    const rows = sheet.getDataRange().getValues()
+    if (rows.length < 2) {
+      return { orderCount: 0, lastEmail: '', lastTelefon: '' }
+    }
+
+    const header = rows[0]
+    const nipCol = findColumnIndexOptional(header, 'NIP', ['nip'])
+    if (nipCol < 0) {
+      return { orderCount: 0, lastEmail: '', lastTelefon: '' }
+    }
+
+    const emailCol = findColumnIndexOptional(header, 'E-mail', ['Email', 'email'])
+    const phoneCol = findColumnIndexOptional(header, 'Telefon', ['telefon', 'Phone'])
+
+    var orderCount = 0
+    var lastEmail = ''
+    var lastTelefon = ''
+    var lastIndex = -1
+
+    for (var i = 1; i < rows.length; i++) {
+      if (normalizeNip(String(rows[i][nipCol] || '')) !== nip) continue
+      orderCount++
+      if (i >= lastIndex) {
+        lastIndex = i
+        if (emailCol >= 0) {
+          const email = String(rows[i][emailCol] || '').trim()
+          if (email) lastEmail = email
+        }
+        if (phoneCol >= 0) {
+          const telefon = String(rows[i][phoneCol] || '').trim()
+          if (telefon) lastTelefon = telefon
+        }
+      }
+    }
+
+    return { orderCount: orderCount, lastEmail: lastEmail, lastTelefon: lastTelefon }
+  } catch (err) {
+    return { orderCount: 0, lastEmail: '', lastTelefon: '' }
+  }
+}
 
 function getClientInfo(nip) {
   const sheet = getSheet(SHEET_NAMES.KLIENCI)
@@ -154,23 +227,70 @@ function getClientInfo(nip) {
   }
 
   if (clientMatch) {
-    return {
+    return withOrderHistory({
       nip: clientMatch.nip,
       nazwa: clientMatch.nazwa,
       procentRabatu:
         clientMatch.procentRabatu !== null ? clientMatch.procentRabatu : defaultRabat,
       cennik: DEFAULT_CENNIK,
       found: true,
-    }
+    })
   }
 
-  return {
+  return withOrderHistory({
     nip: nip,
     nazwa: 'Nieznany klient',
     procentRabatu: defaultRabat,
     cennik: DEFAULT_CENNIK,
     found: false,
+  })
+}
+
+/**
+ * Po pierwszym zamówieniu dopisuje klienta do arkusza Klienci (jeśli NIP nie istnieje).
+ * Cennik: podstawowy, rabat: 25%.
+ */
+function ensureClientRegisteredFromOrder(data) {
+  const nip = normalizeNip(String(data.nip || ''))
+  if (!nip) {
+    return { added: false, reason: 'no_nip' }
   }
+
+  const sheet = getSheet(SHEET_NAMES.KLIENCI)
+  const rows = sheet.getDataRange().getValues()
+  if (rows.length === 0) {
+    throw new Error('Arkusz Klienci jest pusty — brak nagłówków kolumn.')
+  }
+
+  const header = rows[0]
+  const nipCol = findColumnIndex(header, 'NIP', ['nip'])
+  const nazwaCol = findColumnIndex(header, 'Nazwa', ['nazwa', 'Nazwa firmy'])
+  const cennikCol = findColumnIndexOptional(header, 'Cennik', ['cennik'])
+  const rabatCol = findColumnIndexOptional(header, 'Procent Rabatu', [
+    'Procent rabatu',
+    'procent rabatu',
+    'Rabat',
+  ])
+
+  for (let i = 1; i < rows.length; i++) {
+    if (normalizeNip(String(rows[i][nipCol] || '')) === nip) {
+      return { added: false, reason: 'exists' }
+    }
+  }
+
+  const nazwa = String(data.nazwa || '').trim() || 'Nieznany klient'
+  const newRow = new Array(header.length).fill('')
+  newRow[nipCol] = nip
+  newRow[nazwaCol] = nazwa
+  if (cennikCol >= 0) {
+    newRow[cennikCol] = NEW_CLIENT_FROM_ORDER_CENNIK
+  }
+  if (rabatCol >= 0) {
+    newRow[rabatCol] = NEW_CLIENT_FROM_ORDER_RABAT
+  }
+
+  sheet.appendRow(newRow)
+  return { added: true }
 }
 
 function parseProcentRabatu(value) {
@@ -432,6 +552,30 @@ function sendOrderEmail(data) {
     to: ORDER_NOTIFY_EMAIL,
     subject: 'Nowe zamówienie Binglass: ' + data.nazwa,
     body: body,
+  })
+}
+
+function sendCustomerConfirmationEmail(data) {
+  const email = String(data.email || '').trim()
+  if (!email) {
+    throw new Error('Brak adresu e-mail klienta')
+  }
+
+  const body =
+    'Dzień dobry,\n\n' +
+    'dziękujemy za zamówienie w Binglass.\n' +
+    'Skontaktujemy się jak najszybciej i przystąpimy do realizacji.\n\n' +
+    'Pozdrawiamy,\n' +
+    'Zespół Binglass\n\n' +
+    '---\n' +
+    'To jest automatyczna wiadomość potwierdzająca przyjęcie zamówienia.'
+
+  MailApp.sendEmail({
+    to: email,
+    subject: 'Potwierdzenie zamówienia — Binglass',
+    body: body,
+    replyTo: ORDER_NOTIFY_EMAIL,
+    name: 'Binglass',
   })
 }
 

@@ -1,5 +1,10 @@
 import { DEFAULT_CENNIK } from '../constants'
-import { parseKlienciRows, resolveClientFromKlienci } from '../utils/clientLookup'
+import {
+  parseKlienciRows,
+  resolveClientFromKlienci,
+  parseOrderHistoryFromRows,
+  enrichClientProfile,
+} from '../utils/clientLookup'
 
 const SHEET_ID = import.meta.env.VITE_SHEET_ID
 export const USE_SHEET = Boolean(SHEET_ID)
@@ -117,8 +122,12 @@ export async function loadCatalogFromSheet() {
 }
 
 export async function lookupClientFromSheet(nip) {
-  const rows = await fetchSheet('Klienci')
-  const parsed = parseKlienciRows(rows, col)
+  const [klienciRows, zamowieniaRows] = await Promise.all([
+    fetchSheet('Klienci'),
+    fetchSheet('Zamówienia').catch(() => []),
+  ])
+  const parsed = parseKlienciRows(klienciRows, col)
   const client = resolveClientFromKlienci(nip, parsed)
-  return { ...client, cennik: DEFAULT_CENNIK }
+  const history = parseOrderHistoryFromRows(zamowieniaRows, nip, col)
+  return enrichClientProfile({ ...client, cennik: DEFAULT_CENNIK }, history)
 }
