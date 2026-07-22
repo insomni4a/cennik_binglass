@@ -627,7 +627,8 @@ function App() {
       <main className="main-content">
       {showWelcomeBanner && (
         <div className="client-banner client-banner--welcome" role="status">
-          Witaj ponownie {welcomeCompanyName}
+          Witaj ponownie {welcomeCompanyName} — przyznany rabat &quot;
+          {Number(clientProfile.procentRabatu ?? 0)}%&quot;
         </div>
       )}
       {apiStale && !USE_SHEET && (
