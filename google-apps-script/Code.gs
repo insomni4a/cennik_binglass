@@ -89,9 +89,17 @@ function doPost(e) {
 
     try {
       saveOrder(data)
-      ensureClientRegisteredFromOrder(data)
     } catch (saveErr) {
       throw new Error('Zapis zamówienia: ' + String(saveErr.message || saveErr))
+    }
+
+    var clientAdded = false
+    var clientRegisterError = null
+    try {
+      var registerResult = ensureClientRegisteredFromOrder(data)
+      clientAdded = Boolean(registerResult.added)
+    } catch (registerErr) {
+      clientRegisterError = String(registerErr.message || registerErr)
     }
 
     if (data.email && data.telefon) {
@@ -121,6 +129,8 @@ function doPost(e) {
       emailSent: emailSent,
       customerEmailSent: customerEmailSent,
       customerEmailWarning: customerEmailWarning,
+      clientAdded: clientAdded,
+      clientRegisterError: clientRegisterError || null,
       emailError: emailError || null,
       customerEmailError: customerEmailError || null,
       message: emailSent
@@ -272,14 +282,22 @@ function ensureClientRegisteredFromOrder(data) {
   }
 
   const header = rows[0]
-  const nipCol = findColumnIndex(header, 'NIP', ['nip'])
-  const nazwaCol = findColumnIndex(header, 'Nazwa', ['nazwa', 'Nazwa firmy'])
+  const nipCol = findColumnIndexOptional(header, 'NIP', ['nip'])
+  const nazwaCol = findColumnIndexOptional(header, 'Nazwa', ['nazwa', 'Nazwa firmy'])
   const cennikCol = findColumnIndexOptional(header, 'Cennik', ['cennik'])
   const rabatCol = findColumnIndexOptional(header, 'Procent Rabatu', [
     'Procent rabatu',
     'procent rabatu',
     'Rabat',
+    '% rabatu',
   ])
+
+  if (nipCol < 0) {
+    throw new Error('Arkusz Klienci: brak kolumny NIP.')
+  }
+  if (nazwaCol < 0) {
+    throw new Error('Arkusz Klienci: brak kolumny Nazwa / Nazwa firmy.')
+  }
 
   for (let i = 1; i < rows.length; i++) {
     if (normalizeNip(String(rows[i][nipCol] || '')) === nip) {
@@ -299,6 +317,8 @@ function ensureClientRegisteredFromOrder(data) {
   }
 
   sheet.appendRow(newRow)
+  const lastRow = sheet.getLastRow()
+  sheet.getRange(lastRow, nipCol + 1).setNumberFormat('@')
   return { added: true }
 }
 

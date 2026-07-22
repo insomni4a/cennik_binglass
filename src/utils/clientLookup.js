@@ -89,10 +89,14 @@ export function parseOrderHistoryFromRows(rows, nip, colFn) {
 
 export function enrichClientProfile(client, history = {}) {
   const orderCount = Number(history.orderCount ?? client.orderCount) || 0
+  const found = Boolean(client.found)
+  const hasOrders = orderCount > 0 || Boolean(client.hasOrders)
   return {
     ...client,
     orderCount,
-    hasOrders: orderCount > 0 || Boolean(client.hasOrders),
+    found,
+    hasOrders,
+    isReturning: found || hasOrders,
     lastEmail: history.lastEmail ?? client.lastEmail ?? '',
     lastTelefon: history.lastTelefon ?? client.lastTelefon ?? '',
   }

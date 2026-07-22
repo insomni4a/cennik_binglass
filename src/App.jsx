@@ -166,13 +166,40 @@ function App() {
       const client = await lookupClient(normalizedNip)
       const profile = enrichClientProfile(client)
       setClientProfile(profile)
-      if (profile.nazwa && profile.nazwa !== 'Nieznany klient') {
+      if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
         setCompanyName(profile.nazwa)
       }
     } catch {
       setClientProfile(null)
     }
   }
+
+  useEffect(() => {
+    if (!nip) return undefined
+
+    const nipResult = validateNip(nip)
+    if (!nipResult.valid) return undefined
+
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const client = await lookupClient(nipResult.normalized)
+        const profile = enrichClientProfile(client)
+        if (cancelled) return
+        setClientProfile(profile)
+        if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
+          setCompanyName(profile.nazwa)
+        }
+      } catch {
+        if (!cancelled) setClientProfile(null)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [nip])
 
   const withCurrentCompanyName = (currentQuote) => {
     if (!currentQuote) return null
@@ -558,7 +585,11 @@ function App() {
     (clientProfile?.nazwa && clientProfile.nazwa !== 'Nieznany klient'
       ? clientProfile.nazwa
       : quote?.companyName)
-  const showWelcomeBanner = Boolean(clientProfile?.hasOrders && welcomeCompanyName)
+  const showWelcomeBanner = Boolean(
+    clientProfile?.isReturning &&
+      welcomeCompanyName &&
+      welcomeCompanyName !== 'Nieznany klient'
+  )
 
   return (
     <div className="app-shell">

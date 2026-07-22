@@ -10,6 +10,7 @@ import {
   mockGetCatalog,
   mockSubmitOrder,
 } from './pricingService'
+import { enrichClientProfile } from '../utils/clientLookup'
 
 export async function loadCatalog() {
   if (USE_MOCK) {
@@ -35,12 +36,25 @@ export async function loadCatalog() {
 
 export async function lookupClient(nip) {
   if (USE_MOCK) {
-    return mockFetchClient(nip)
+    return enrichClientProfile(await mockFetchClient(nip))
   }
+
+  if (import.meta.env.VITE_API_URL) {
+    try {
+      return enrichClientProfile(await fetchClient(nip))
+    } catch (err) {
+      if (USE_SHEET) {
+        return lookupClientFromSheet(nip)
+      }
+      throw err
+    }
+  }
+
   if (USE_SHEET) {
     return lookupClientFromSheet(nip)
   }
-  return fetchClient(nip)
+
+  throw new Error('Brak źródła danych klienta (API lub arkusz).')
 }
 
 export async function placeOrder(order) {
