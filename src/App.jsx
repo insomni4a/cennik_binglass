@@ -89,6 +89,7 @@ function App() {
   const [orderSuccess, setOrderSuccess] = useState('')
   const [clientProfile, setClientProfile] = useState(null)
   const [orderThankYou, setOrderThankYou] = useState(false)
+  const [lookingUpClient, setLookingUpClient] = useState(false)
 
   const nipValidation = nipTouched || nip.length > 0 ? validateNip(nip) : { valid: true }
   const companyNameValid = companyName.trim().length > 0
@@ -162,44 +163,42 @@ function App() {
   }
 
   const refreshClientProfile = async (normalizedNip) => {
-    try {
-      const client = await lookupClient(normalizedNip)
-      const profile = enrichClientProfile(client)
-      setClientProfile(profile)
-      if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
-        setCompanyName(profile.nazwa)
-      }
-    } catch {
-      setClientProfile(null)
-    }
+    const client = await lookupClient(normalizedNip)
+    return enrichClientProfile(client)
   }
 
-  useEffect(() => {
-    if (!nip) return undefined
+  const handleReturningClientLookup = async () => {
+    setNipTouched(true)
+    setError('')
+    setOfferSuccess('')
 
     const nipResult = validateNip(nip)
-    if (!nipResult.valid) return undefined
-
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        const client = await lookupClient(nipResult.normalized)
-        const profile = enrichClientProfile(client)
-        if (cancelled) return
-        setClientProfile(profile)
-        if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
-          setCompanyName(profile.nazwa)
-        }
-      } catch {
-        if (!cancelled) setClientProfile(null)
-      }
-    })()
-
-    return () => {
-      cancelled = true
+    if (!nipResult.valid) {
+      setError(nipResult.message)
+      setClientProfile(null)
+      return
     }
-  }, [nip])
+
+    setLookingUpClient(true)
+    try {
+      const profile = await refreshClientProfile(nipResult.normalized)
+      setClientProfile(profile)
+
+      if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
+        setCompanyName(profile.nazwa)
+        setCompanyNameTouched(false)
+      } else {
+        setCompanyName('')
+        setClientProfile({ ...profile, found: false })
+        setError('Nie znaleziono tego NIP w bazie stałych klientów. Wpisz nazwę firmy ręcznie.')
+      }
+    } catch (err) {
+      setClientProfile(null)
+      setError(err.message || 'Nie udało się sprawdzić NIP w bazie klientów.')
+    } finally {
+      setLookingUpClient(false)
+    }
+  }
 
   const withCurrentCompanyName = (currentQuote) => {
     if (!currentQuote) return null
@@ -251,15 +250,7 @@ function App() {
     setError('')
   }
 
-  const handleNipBlur = async () => {
-    setNipTouched(true)
-    const nipResult = validateNip(nip)
-    if (nipResult.valid) {
-      await refreshClientProfile(nipResult.normalized)
-    } else {
-      setClientProfile(null)
-    }
-  }
+  const handleNipBlur = () => setNipTouched(true)
 
   const updateLine = (id, updates) => {
     setLines((prev) =>
@@ -338,7 +329,6 @@ function App() {
     setLoading(true)
     try {
       const client = enrichClientProfile(await lookupClient(nipResult.normalized))
-      setClientProfile(client)
       const updatedLines = [...lines]
       const items = []
       let subtotal = 0
@@ -524,11 +514,6 @@ function App() {
       resetCennikAfterOrder()
       setOrderThankYou(true)
 
-      const nipResult = validateNip(nip)
-      if (nipResult.valid) {
-        await refreshClientProfile(nipResult.normalized)
-      }
-
       const customerNote = result.customerEmailSent
         ? ' Na Twój adres e-mail wysłaliśmy potwierdzenie zamówienia.'
         : ''
@@ -538,6 +523,8 @@ function App() {
         setError(result.customerEmailWarning)
       } else if (result.customerEmailError) {
         setError(`Potwierdzenie e-mail do klienta nie zostało wysłane: ${result.customerEmailError}`)
+      } else if (result.clientRegisterError) {
+        setError(`Zamówienie zapisane, ale wpis do zakładki Klienci nie powiódł się: ${result.clientRegisterError}`)
       } else if (result.emailError && !result.emailSent) {
         setError(`Powiadomienie do Binglass nie zostało wysłane: ${result.emailError}`)
       }
@@ -586,7 +573,7 @@ function App() {
       ? clientProfile.nazwa
       : quote?.companyName)
   const showWelcomeBanner = Boolean(
-    clientProfile?.isReturning &&
+    clientProfile?.found &&
       welcomeCompanyName &&
       welcomeCompanyName !== 'Nieznany klient'
   )
@@ -684,18 +671,28 @@ function App() {
           <div className="client-field-stack client-field">
             <div className="nip-group">
               <label htmlFor="nip">NIP firmy</label>
-              <input
-                id="nip"
-                type="text"
-                inputMode="numeric"
-                value={formatNip(nip)}
-                onChange={(e) => handleNipChange(e.target.value)}
-                onBlur={handleNipBlur}
-                placeholder="np. 123-456-78-90"
-                disabled={loading}
-                className={nipTouched && !nipValidation.valid ? 'input-error' : ''}
-                aria-invalid={nipTouched && !nipValidation.valid}
-              />
+              <div className="nip-row">
+                <input
+                  id="nip"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNip(nip)}
+                  onChange={(e) => handleNipChange(e.target.value)}
+                  onBlur={handleNipBlur}
+                  placeholder="np. 123-456-78-90"
+                  disabled={loading || lookingUpClient}
+                  className={nipTouched && !nipValidation.valid ? 'input-error' : ''}
+                  aria-invalid={nipTouched && !nipValidation.valid}
+                />
+                <button
+                  type="button"
+                  className="btn-returning-client"
+                  onClick={handleReturningClientLookup}
+                  disabled={loading || lookingUpClient}
+                >
+                  {lookingUpClient ? 'Sprawdzam…' : 'STAŁY KLIENT - WPISZ NIP I KLIKNIJ'}
+                </button>
+              </div>
               {nipTouched && !nipValidation.valid && (
                 <span className="field-error">{nipValidation.message}</span>
               )}

@@ -267,7 +267,7 @@ function getClientInfo(nip) {
 
 /**
  * Po pierwszym zamówieniu dopisuje klienta do arkusza Klienci (jeśli NIP nie istnieje).
- * Cennik: podstawowy, rabat: 25%.
+ * Zakładka: NIP | Nazwa | Cennik | Procent Rabatu (kolumny A–D).
  */
 function ensureClientRegisteredFromOrder(data) {
   const nip = normalizeNip(String(data.nip || ''))
@@ -276,50 +276,39 @@ function ensureClientRegisteredFromOrder(data) {
   }
 
   const sheet = getSheet(SHEET_NAMES.KLIENCI)
-  const rows = sheet.getDataRange().getValues()
-  if (rows.length === 0) {
-    throw new Error('Arkusz Klienci jest pusty — brak nagłówków kolumn.')
-  }
+  ensureKlienciHeaderRow(sheet)
 
-  const header = rows[0]
-  const nipCol = findColumnIndexOptional(header, 'NIP', ['nip'])
-  const nazwaCol = findColumnIndexOptional(header, 'Nazwa', ['nazwa', 'Nazwa firmy'])
-  const cennikCol = findColumnIndexOptional(header, 'Cennik', ['cennik'])
-  const rabatCol = findColumnIndexOptional(header, 'Procent Rabatu', [
-    'Procent rabatu',
-    'procent rabatu',
-    'Rabat',
-    '% rabatu',
-  ])
-
-  if (nipCol < 0) {
-    throw new Error('Arkusz Klienci: brak kolumny NIP.')
-  }
-  if (nazwaCol < 0) {
-    throw new Error('Arkusz Klienci: brak kolumny Nazwa / Nazwa firmy.')
-  }
-
-  for (let i = 1; i < rows.length; i++) {
-    if (normalizeNip(String(rows[i][nipCol] || '')) === nip) {
-      return { added: false, reason: 'exists' }
+  const lastRow = sheet.getLastRow()
+  if (lastRow > 1) {
+    const existing = sheet.getRange(2, 1, lastRow, 1).getValues()
+    for (let i = 0; i < existing.length; i++) {
+      if (normalizeNip(String(existing[i][0] || '')) === nip) {
+        return { added: false, reason: 'exists' }
+      }
     }
   }
 
   const nazwa = String(data.nazwa || '').trim() || 'Nieznany klient'
-  const newRow = new Array(header.length).fill('')
-  newRow[nipCol] = nip
-  newRow[nazwaCol] = nazwa
-  if (cennikCol >= 0) {
-    newRow[cennikCol] = NEW_CLIENT_FROM_ORDER_CENNIK
-  }
-  if (rabatCol >= 0) {
-    newRow[rabatCol] = NEW_CLIENT_FROM_ORDER_RABAT
+  const nextRow = lastRow + 1
+  sheet.getRange(nextRow, 1, nextRow, 4).setValues([
+    [nip, nazwa, NEW_CLIENT_FROM_ORDER_CENNIK, NEW_CLIENT_FROM_ORDER_RABAT],
+  ])
+  sheet.getRange(nextRow, 1).setNumberFormat('@')
+
+  return { added: true }
+}
+
+function ensureKlienciHeaderRow(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, 4).setValues([['NIP', 'Nazwa', 'Cennik', 'Procent Rabatu']])
+    return
   }
 
-  sheet.appendRow(newRow)
-  const lastRow = sheet.getLastRow()
-  sheet.getRange(lastRow, nipCol + 1).setNumberFormat('@')
-  return { added: true }
+  const firstHeader = String(sheet.getRange(1, 1).getValue() || '').trim()
+  if (normalizeHeader(firstHeader) !== 'nip') {
+    sheet.insertRowBefore(1)
+    sheet.getRange(1, 1, 1, 4).setValues([['NIP', 'Nazwa', 'Cennik', 'Procent Rabatu']])
+  }
 }
 
 function parseProcentRabatu(value) {

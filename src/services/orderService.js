@@ -27,6 +27,8 @@ export async function submitOrderWithEmail(order) {
       customerEmailSent: Boolean(apiResult.customerEmailSent),
       customerEmailError: apiResult.customerEmailError || null,
       customerEmailWarning: apiResult.customerEmailWarning || null,
+      clientAdded: Boolean(apiResult.clientAdded),
+      clientRegisterError: apiResult.clientRegisterError || null,
       emailError: apiResult.emailError || null,
       message: buildOrderSuccessMessage(apiResult),
       via: 'api',
