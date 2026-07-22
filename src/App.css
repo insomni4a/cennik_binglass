@@ -29,8 +29,8 @@
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  height: calc(1.35rem * 1.25 + 0.15rem + 0.875rem * 1.4);
+  width: auto;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
@@ -39,6 +39,7 @@
 .brand-text h1 {
   font-size: 1.35rem;
   font-weight: 700;
+  line-height: 1.25;
   margin: 0;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -48,6 +49,7 @@
   margin: 0.15rem 0 0;
   color: var(--text-secondary);
   font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .topbar-badges {

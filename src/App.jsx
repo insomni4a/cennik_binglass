@@ -561,8 +561,6 @@ function App() {
             src={BINGLASS_LOGO_URL}
             alt="Binglass"
             className="brand-logo"
-            width={44}
-            height={44}
           />
           <div className="brand-text">
             <h1>Cennik Binglass</h1>
