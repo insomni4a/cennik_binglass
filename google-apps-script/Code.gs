@@ -31,13 +31,18 @@ function doGet(e) {
     const action = (e.parameter.action || 'client').toLowerCase()
 
     if (action === 'ping') {
-      return jsonResponse({ version: API_VERSION, ok: true })
+      return jsonResponse({
+        version: API_VERSION,
+        ok: true,
+        clientRegisterOnOrder: true,
+      })
     }
 
     if (action === 'cenniki') {
       return jsonResponse({
         version: API_VERSION,
         orderEmail: true,
+        clientRegisterOnOrder: true,
         cenniki: getCenniki(),
         dodatki: getDodatki(),
         tryby: getTryby(),
@@ -87,19 +92,19 @@ function doPost(e) {
     var customerEmailSent = false
     var customerEmailError = ''
 
-    try {
-      saveOrder(data)
-    } catch (saveErr) {
-      throw new Error('Zapis zamówienia: ' + String(saveErr.message || saveErr))
-    }
-
     var clientAdded = false
     var clientRegisterError = null
+    var clientRegisterReason = null
+    var clientRegisterRow = null
+
     try {
-      var registerResult = ensureClientRegisteredFromOrder(data)
+      var registerResult = saveOrder(data)
       clientAdded = Boolean(registerResult.added)
-    } catch (registerErr) {
-      clientRegisterError = String(registerErr.message || registerErr)
+      clientRegisterReason = registerResult.reason || null
+      clientRegisterRow = registerResult.row || null
+      clientRegisterError = registerResult.error || null
+    } catch (saveErr) {
+      throw new Error('Zapis zamówienia: ' + String(saveErr.message || saveErr))
     }
 
     if (data.email && data.telefon) {
@@ -130,6 +135,8 @@ function doPost(e) {
       customerEmailSent: customerEmailSent,
       customerEmailWarning: customerEmailWarning,
       clientAdded: clientAdded,
+      clientRegisterReason: clientRegisterReason,
+      clientRegisterRow: clientRegisterRow,
       clientRegisterError: clientRegisterError || null,
       emailError: emailError || null,
       customerEmailError: customerEmailError || null,
@@ -276,6 +283,13 @@ function ensureClientRegisteredFromOrder(data) {
   }
 
   const sheet = getSheet(SHEET_NAMES.KLIENCI)
+
+  if (sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).length > 0) {
+    throw new Error(
+      'Arkusz Klienci jest chroniony. Usuń ochronę arkusza lub pozwól właścicielowi skryptu na edycję.'
+    )
+  }
+
   ensureKlienciHeaderRow(sheet)
 
   const lastRow = sheet.getLastRow()
@@ -283,19 +297,18 @@ function ensureClientRegisteredFromOrder(data) {
     const existing = sheet.getRange(2, 1, lastRow, 1).getValues()
     for (let i = 0; i < existing.length; i++) {
       if (normalizeNip(String(existing[i][0] || '')) === nip) {
-        return { added: false, reason: 'exists' }
+        return { added: false, reason: 'exists', nip: nip }
       }
     }
   }
 
   const nazwa = String(data.nazwa || '').trim() || 'Nieznany klient'
-  const nextRow = lastRow + 1
-  sheet.getRange(nextRow, 1, nextRow, 4).setValues([
-    [nip, nazwa, NEW_CLIENT_FROM_ORDER_CENNIK, NEW_CLIENT_FROM_ORDER_RABAT],
-  ])
-  sheet.getRange(nextRow, 1).setNumberFormat('@')
+  sheet.appendRow([nip, nazwa, NEW_CLIENT_FROM_ORDER_CENNIK, NEW_CLIENT_FROM_ORDER_RABAT])
+  const writtenRow = sheet.getLastRow()
+  sheet.getRange(writtenRow, 1).setNumberFormat('@')
+  SpreadsheetApp.flush()
 
-  return { added: true }
+  return { added: true, reason: 'added', row: writtenRow, nip: nip, nazwa: nazwa }
 }
 
 function ensureKlienciHeaderRow(sheet) {
@@ -401,10 +414,30 @@ function getDebugInfo() {
     return {
       name: s.getName(),
       rowCount: rows.length,
+      lastRow: s.getLastRow(),
+      protected: s.getProtections(SpreadsheetApp.ProtectionType.SHEET).length > 0,
       headers: rows.length > 0 ? rows[0].map((h) => String(h).trim()) : [],
     }
   })
-  return { spreadsheet: ss.getName(), sheets: sheets }
+
+  let klienciSample = []
+  try {
+    const klienci = getSheet(SHEET_NAMES.KLIENCI)
+    const lastRow = klienci.getLastRow()
+    if (lastRow > 1) {
+      klienciSample = klienci.getRange(2, 1, Math.min(lastRow, 6), 4).getValues()
+    }
+  } catch (err) {
+    klienciSample = [{ error: String(err.message || err) }]
+  }
+
+  return {
+    apiVersion: API_VERSION,
+    clientRegisterOnOrder: true,
+    spreadsheet: ss.getName(),
+    sheets: sheets,
+    klienciSample: klienciSample,
+  }
 }
 
 // --- Zamówienia ---
@@ -498,6 +531,16 @@ function saveOrder(data) {
     String(data.telefon || ''),
     JSON.stringify(data.items || []),
   ])
+
+  try {
+    return ensureClientRegisteredFromOrder(data)
+  } catch (registerErr) {
+    return {
+      added: false,
+      reason: 'error',
+      error: String(registerErr.message || registerErr),
+    }
+  }
 }
 
 function sendOrderEmail(data) {
@@ -705,6 +748,13 @@ function testDeploy() {
   }
   Logger.log(JSON.stringify(info, null, 2))
   return info
+}
+
+function testRegisterClientFromOrder() {
+  return ensureClientRegisteredFromOrder({
+    nip: '9999999999',
+    nazwa: 'Test automatyczny Klienci',
+  })
 }
 
 function testSendOrderEmail() {

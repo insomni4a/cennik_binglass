@@ -28,6 +28,8 @@ export async function submitOrderWithEmail(order) {
       customerEmailError: apiResult.customerEmailError || null,
       customerEmailWarning: apiResult.customerEmailWarning || null,
       clientAdded: Boolean(apiResult.clientAdded),
+      clientRegisterReason: apiResult.clientRegisterReason || null,
+      clientRegisterRow: apiResult.clientRegisterRow || null,
       clientRegisterError: apiResult.clientRegisterError || null,
       emailError: apiResult.emailError || null,
       message: buildOrderSuccessMessage(apiResult),

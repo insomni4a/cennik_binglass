@@ -18,7 +18,7 @@ async function handleResponse(response) {
 
 export function isStaleApiResponse(data) {
   if (!data || USE_MOCK) return false
-  return Number(data.version) !== EXPECTED_API_VERSION
+  return Number(data.version) !== EXPECTED_API_VERSION || data.clientRegisterOnOrder !== true
 }
 
 export async function fetchClient(nip) {
@@ -50,7 +50,7 @@ export async function fetchApiRaw() {
   return {
     cenniki,
     cennikiUrl,
-    apiOk: Number(cenniki.version) === EXPECTED_API_VERSION,
+    apiOk: Number(cenniki.version) === EXPECTED_API_VERSION && cenniki.clientRegisterOnOrder === true,
   }
 }
 

@@ -514,19 +514,42 @@ function App() {
       resetCennikAfterOrder()
       setOrderThankYou(true)
 
+      const clientNote = result.clientAdded
+        ? ` Klient dopisany do zakładki Klienci (wiersz ${result.clientRegisterRow || '?'}).`
+        : result.clientRegisterReason === 'exists'
+          ? ' Klient z tym NIP jest już w zakładce Klienci.'
+          : ''
       const customerNote = result.customerEmailSent
         ? ' Na Twój adres e-mail wysłaliśmy potwierdzenie zamówienia.'
         : ''
-      setOrderSuccess(`${result.message}${customerNote}`)
+      setOrderSuccess(`${result.message}${clientNote}${customerNote}`)
 
-      if (result.customerEmailWarning) {
-        setError(result.customerEmailWarning)
-      } else if (result.customerEmailError) {
-        setError(`Potwierdzenie e-mail do klienta nie zostało wysłane: ${result.customerEmailError}`)
-      } else if (result.clientRegisterError) {
-        setError(`Zamówienie zapisane, ale wpis do zakładki Klienci nie powiódł się: ${result.clientRegisterError}`)
-      } else if (result.emailError && !result.emailSent) {
-        setError(`Powiadomienie do Binglass nie zostało wysłane: ${result.emailError}`)
+      const postOrderIssues = []
+      if (result.customerEmailWarning) postOrderIssues.push(result.customerEmailWarning)
+      if (result.customerEmailError) {
+        postOrderIssues.push(
+          `Potwierdzenie e-mail do klienta nie zostało wysłane: ${result.customerEmailError}`
+        )
+      }
+      if (result.clientRegisterError) {
+        postOrderIssues.push(
+          `Wpis do zakładki Klienci nie powiódł się: ${result.clientRegisterError}`
+        )
+      } else if (
+        result.saved &&
+        !result.clientAdded &&
+        result.clientRegisterReason &&
+        result.clientRegisterReason !== 'exists'
+      ) {
+        postOrderIssues.push(
+          `Klient nie został dopisany do zakładki Klienci (powód: ${result.clientRegisterReason}).`
+        )
+      }
+      if (result.emailError && !result.emailSent) {
+        postOrderIssues.push(`Powiadomienie do Binglass nie zostało wysłane: ${result.emailError}`)
+      }
+      if (postOrderIssues.length > 0) {
+        setError(postOrderIssues.join(' '))
       }
     } catch (err) {
       setError(err.message || 'Nie udało się złożyć zamówienia. Spróbuj ponownie.')
@@ -619,7 +642,8 @@ function App() {
             <li>Zapisz (Ctrl+S)</li>
             <li><strong>Wdróż → Zarządzaj wdrożeniami</strong> → ołówek przy Web App</li>
             <li>W polu „Wersja” wybierz <strong>Nowa wersja</strong> → Wdróż</li>
-            <li>Otwórz link testowy poniżej — musi być <code>&quot;version&quot;: 3</code></li>
+            <li>Otwórz link testowy poniżej — musi być <code>&quot;version&quot;: 3</code> i{' '}
+            <code>&quot;clientRegisterOnOrder&quot;: true</code></li>
           </ol>
           <p className="api-url">
             Test w przeglądarce:{' '}
@@ -628,7 +652,8 @@ function App() {
             </a>
           </p>
           <p>
-            Oczekiwany wynik zaczyna się od: <code>{'{"version":3,"cenniki":[...'}</code>
+            Oczekiwany wynik zaczyna się od:{' '}
+            <code>{'{"version":3,"clientRegisterOnOrder":true,"cenniki":[...'}</code>
             <br />
             Twój obecny wynik: tylko <code>{'{"cenniki":[...'}</code> bez <code>version</code> i bez{' '}
             <code>rodzaj</code> — to <strong>stary skrypt</strong>.
