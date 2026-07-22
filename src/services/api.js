@@ -37,6 +37,8 @@ export async function fetchCatalog() {
   const data = await handleResponse(response)
   return {
     version: data.version,
+    orderEmail: data.orderEmail,
+    clientRegisterOnOrder: data.clientRegisterOnOrder,
     cenniki: data.cenniki ?? [],
     dodatki: data.dodatki ?? [{ dodatek: 'Brak', cena: 0 }],
     tryby: data.tryby ?? [{ tryb: 'Standard', procent: 0 }],
