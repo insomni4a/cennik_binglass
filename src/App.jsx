@@ -506,6 +506,14 @@ function App() {
         ? ' Na Twój adres e-mail wysłaliśmy potwierdzenie zamówienia.'
         : ''
       setOrderSuccess(`${result.message}${customerNote}`)
+
+      if (result.customerEmailWarning) {
+        setError(result.customerEmailWarning)
+      } else if (result.customerEmailError) {
+        setError(`Potwierdzenie e-mail do klienta nie zostało wysłane: ${result.customerEmailError}`)
+      } else if (result.emailError && !result.emailSent) {
+        setError(`Powiadomienie do Binglass nie zostało wysłane: ${result.emailError}`)
+      }
     } catch (err) {
       setError(err.message || 'Nie udało się złożyć zamówienia. Spróbuj ponownie.')
     } finally {

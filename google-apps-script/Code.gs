@@ -19,6 +19,8 @@ const NEW_CLIENT_FROM_ORDER_CENNIK = 'podstawowy'
 const NEW_CLIENT_FROM_ORDER_RABAT = 25
 const API_VERSION = 3
 const ORDER_NOTIFY_EMAIL = 'kaleb.binglass@gmail.com'
+const BINGLASS_MAIL_FROM = 'kaleb.binglass@gmail.com'
+const BINGLASS_MAIL_NAME = 'Binglass'
 
 /**
  * GET ?action=client&nip=1234567890
@@ -99,26 +101,33 @@ function doPost(e) {
       } catch (mailErr) {
         emailError = String(mailErr.message || mailErr)
       }
+    } else {
+      emailError = 'Brak danych do wysyłki powiadomienia (e-mail lub telefon).'
+    }
 
+    var customerEmailWarning = null
+    if (data.email) {
       try {
-        sendCustomerConfirmationEmail(data)
+        var customerMailResult = sendCustomerConfirmationEmail(data)
         customerEmailSent = true
+        customerEmailWarning = customerMailResult.sameMailboxWarning || null
       } catch (customerMailErr) {
         customerEmailError = String(customerMailErr.message || customerMailErr)
       }
-    } else {
-      emailError = 'Brak danych do wysyłki e-mail (email lub telefon).'
     }
 
     return jsonResponse({
       success: true,
       emailSent: emailSent,
       customerEmailSent: customerEmailSent,
+      customerEmailWarning: customerEmailWarning,
       emailError: emailError || null,
       customerEmailError: customerEmailError || null,
       message: emailSent
         ? 'Zamówienie złożone i wysłane e-mailem'
-        : 'Zamówienie zapisane, ale e-mail nie został wysłany',
+        : customerEmailSent
+          ? 'Zamówienie zapisane — wysłano potwierdzenie do klienta'
+          : 'Zamówienie zapisane, ale e-mail nie został wysłany',
     })
   } catch (err) {
     return jsonResponse({ error: String(err.message || err) }, 400)
@@ -548,11 +557,70 @@ function sendOrderEmail(data) {
     Number(data.cenaLaczna).toFixed(2) +
     ' zł'
 
-  MailApp.sendEmail({
-    to: ORDER_NOTIFY_EMAIL,
-    subject: 'Nowe zamówienie Binglass: ' + data.nazwa,
-    body: body,
-  })
+  sendBinglassEmail(ORDER_NOTIFY_EMAIL, 'Nowe zamówienie Binglass: ' + data.nazwa, body)
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function getScriptMailbox() {
+  try {
+    var active = Session.getActiveUser().getEmail()
+    if (active) return normalizeEmail(active)
+  } catch (err) {}
+
+  try {
+    var effective = Session.getEffectiveUser().getEmail()
+    if (effective) return normalizeEmail(effective)
+  } catch (err) {}
+
+  return ''
+}
+
+/**
+ * Wysyła e-mail jako Binglass. Próbuje GmailApp z adresem FROM (wymaga aliasu „Wyślij jako”),
+ * w razie błędu używa MailApp (nadawca = konto właściciela skryptu).
+ */
+function sendBinglassEmail(recipient, subject, body) {
+  var to = String(recipient || '').trim()
+  if (!to) {
+    throw new Error('Brak adresu odbiorcy e-mail')
+  }
+
+  var mailOptions = {
+    name: BINGLASS_MAIL_NAME,
+    replyTo: ORDER_NOTIFY_EMAIL,
+  }
+
+  var senderMailbox = getScriptMailbox()
+  var sameMailbox = Boolean(senderMailbox && normalizeEmail(to) === senderMailbox)
+
+  try {
+    GmailApp.sendEmail(
+      to,
+      subject,
+      body,
+      Object.assign({}, mailOptions, { from: BINGLASS_MAIL_FROM })
+    )
+  } catch (gmailErr) {
+    MailApp.sendEmail(
+      Object.assign(
+        {
+          to: to,
+          subject: subject,
+          body: body,
+        },
+        mailOptions
+      )
+    )
+  }
+
+  return {
+    sameMailboxWarning: sameMailbox
+      ? 'Adres klienta jest taki sam jak konto wysyłające skrypt — wiadomość może nie trafić do Odebranych (sprawdź folder Wysłane).'
+      : null,
+  }
 }
 
 function sendCustomerConfirmationEmail(data) {
@@ -570,13 +638,11 @@ function sendCustomerConfirmationEmail(data) {
     '---\n' +
     'To jest automatyczna wiadomość potwierdzająca przyjęcie zamówienia.'
 
-  MailApp.sendEmail({
-    to: email,
-    subject: 'Potwierdzenie zamówienia — Binglass',
-    body: body,
-    replyTo: ORDER_NOTIFY_EMAIL,
-    name: 'Binglass',
-  })
+  return sendBinglassEmail(
+    email,
+    'Potwierdzenie zamówienia — Binglass',
+    body
+  )
 }
 
 // --- Pomocnicze ---

@@ -1,6 +1,15 @@
 import { placeOrder } from './dataService'
 import { sendOrderEmailFallback } from './orderEmailService'
 
+function buildOrderSuccessMessage(apiResult) {
+  if (apiResult?.message) return apiResult.message
+  if (apiResult?.emailSent) return 'Zamówienie złożone i wysłane e-mailem.'
+  if (apiResult?.customerEmailSent) {
+    return 'Zamówienie zapisane — wysłano potwierdzenie do klienta.'
+  }
+  return 'Zamówienie zapisane.'
+}
+
 export async function submitOrderWithEmail(order) {
   let apiResult = null
   let apiError = null
@@ -11,12 +20,15 @@ export async function submitOrderWithEmail(order) {
     apiError = err
   }
 
-  if (apiResult?.emailSent) {
+  if (apiResult?.success) {
     return {
       saved: true,
-      emailSent: true,
+      emailSent: Boolean(apiResult.emailSent),
       customerEmailSent: Boolean(apiResult.customerEmailSent),
-      message: apiResult.message || 'Zamówienie złożone i wysłane e-mailem.',
+      customerEmailError: apiResult.customerEmailError || null,
+      customerEmailWarning: apiResult.customerEmailWarning || null,
+      emailError: apiResult.emailError || null,
+      message: buildOrderSuccessMessage(apiResult),
       via: 'api',
     }
   }
@@ -26,8 +38,9 @@ export async function submitOrderWithEmail(order) {
     return {
       saved: Boolean(apiResult?.success),
       emailSent: true,
+      customerEmailSent: false,
       message: apiResult?.success
-        ? 'Zamówienie zapisane i wysłane e-mailem.'
+        ? 'Zamówienie zapisane i wysłane e-mailem do Binglass (bez potwierdzenia dla klienta).'
         : 'Zamówienie zostało wysłane e-mailem do Binglass.',
       via: 'fallback',
       apiError: apiError?.message || apiResult?.emailError || null,
