@@ -39,20 +39,60 @@ function formatDate() {
 }
 
 
-/** Rysunek prostokąta szkła z wymiarami (skala zachowana). */
+/** Rysunek szkła z wymiarami (prostokąt lub trapez przy FIX). */
 function buildGlassDrawing(item, index) {
   const wMm = Number(item.width)
-  const hMm = Number(item.height)
+  const hLongMm = Number(item.height)
+  const hShortMm =
+    item.shortSide != null && item.shortSide !== '' ? Number(item.shortSide) : null
+  const isTrapezoid = hShortMm != null && hShortMm > 0
   const ilosc = Number(item.ilosc ?? 1)
   const maxDrawW = 130
   const maxDrawH = 75
-  const scale = Math.min(maxDrawW / wMm, maxDrawH / hMm)
+  const maxHMm = isTrapezoid ? Math.max(hLongMm, hShortMm) : hLongMm
+  const scale = Math.min(maxDrawW / wMm, maxDrawH / maxHMm)
   const rectW = Math.max(wMm * scale, 20)
-  const rectH = Math.max(hMm * scale, 15)
+  const rectH = Math.max(maxHMm * scale, 15)
   const pad = 10
 
   const canvasW = rectW + pad * 2
   const canvasH = rectH + pad * 2
+
+  let shapeCanvas
+  if (isTrapezoid) {
+    const leftH = hShortMm * scale
+    const rightH = hLongMm * scale
+    const yBase = pad + rectH
+    shapeCanvas = {
+      type: 'polyline',
+      lineWidth: 1.5,
+      lineColor: '#2563eb',
+      color: '#eff6ff',
+      closePath: true,
+      points: [
+        { x: pad, y: yBase },
+        { x: pad + rectW, y: yBase },
+        { x: pad + rectW, y: yBase - rightH },
+        { x: pad, y: yBase - leftH },
+      ],
+    }
+  } else {
+    shapeCanvas = {
+      type: 'rect',
+      x: pad,
+      y: pad,
+      w: rectW,
+      h: rectH,
+      r: 0,
+      lineWidth: 1.5,
+      lineColor: '#2563eb',
+      color: '#eff6ff',
+    }
+  }
+
+  const dimLabel = isTrapezoid
+    ? `${wMm} × ${hLongMm}/${hShortMm} mm`
+    : `${wMm} × ${hLongMm} mm`
 
   return {
     width: '48%',
@@ -69,25 +109,13 @@ function buildGlassDrawing(item, index) {
         margin: [0, 0, 0, 6],
       },
       {
-        canvas: [
-          {
-            type: 'rect',
-            x: pad,
-            y: pad,
-            w: rectW,
-            h: rectH,
-            r: 3,
-            lineWidth: 1.5,
-            lineColor: '#2563eb',
-            color: '#eff6ff',
-          },
-        ],
+        canvas: [shapeCanvas],
         width: canvasW,
         height: canvasH,
         alignment: 'center',
       },
       {
-        text: `${wMm} × ${hMm} mm${ilosc > 1 ? ` · ${ilosc} szt.` : ''}`,
+        text: `${dimLabel}${ilosc > 1 ? ` · ${ilosc} szt.` : ''}`,
         fontSize: 9,
         alignment: 'center',
         color: '#374151',
@@ -159,7 +187,7 @@ export function buildOfferDocDefinition(quote) {
       item.rodzaj,
       item.produkt,
       item.dodatek,
-      formatDimensions(item.width, item.height),
+      formatDimensions(item.width, item.height, item.shortSide),
       { text: String(item.ilosc ?? 1), alignment: 'right' },
       { text: formatAreaM2(item.area), alignment: 'right' },
       `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,

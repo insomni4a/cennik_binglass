@@ -14,7 +14,8 @@ import { fetchApiRaw } from './services/api'
 import { validateNip, formatNip } from './utils/nipValidation'
 import { validateEmail, validatePhone, formatPhone } from './utils/contactValidation'
 import { buildOrderPayload } from './utils/buildOrderPayload'
-import { calcAreaM2, calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc } from './utils/dimensions'
+import { calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc, needsShortSide, calcAreaPerPieceM2 } from './utils/dimensions'
+import { readCatalogCache, writeCatalogCache } from './utils/catalogCache'
 import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
 import { BINGLASS_LOGO_URL } from './constants'
@@ -28,6 +29,7 @@ const COLUMNS = [
   { key: 'dodatek', label: 'Dodatek' },
   { key: 'width', label: 'Szer. (mm)' },
   { key: 'height', label: 'Wys. (mm)' },
+  { key: 'shortSide', label: 'Krótk. bok' },
   { key: 'ilosc', label: 'Ilość' },
   { key: 'area', label: 'm²' },
   { key: 'cena', label: 'Cena' },
@@ -43,6 +45,7 @@ function createLine(cenniki, dodatki, defaults, defaultTryb = '') {
     dodatek: base.dodatek,
     width: '',
     height: '',
+    shortSide: '',
     ilosc: 1,
     tryb: defaultTryb,
     cena: null,
@@ -116,16 +119,27 @@ function App() {
   }
 
   const fetchCatalogData = () => {
-    setLoadingData(true)
+    const cached = readCatalogCache()
+    if (cached) {
+      applyCatalog(cached)
+      setLoadingData(false)
+    } else {
+      setLoadingData(true)
+    }
     setDataError('')
 
     try {
       return loadCatalog()
-        .then(applyCatalog)
+        .then((catalog) => {
+          writeCatalogCache(catalog)
+          applyCatalog(catalog)
+        })
         .catch((err) => {
-          setDataError(
-            err.message || 'Nie udało się pobrać cenników. Sprawdź połączenie z API.'
-          )
+          if (!cached) {
+            setDataError(
+              err.message || 'Nie udało się pobrać cenników. Sprawdź połączenie z API.'
+            )
+          }
         })
         .finally(() => setLoadingData(false))
     } catch (err) {
@@ -315,10 +329,28 @@ function App() {
         return
       }
       const ilosc = normalizeIlosc(line.ilosc)
-      const areaPerPiece = calcAreaM2(line.width, line.height)
-      const areaNum = calcLineAreaM2(line.width, line.height, line.ilosc)
+      const useTrapezoid = needsShortSide(line.dodatek)
+      if (useTrapezoid && (!line.shortSide || Number(line.shortSide) <= 0)) {
+        setError('Podaj krótki bok (mm) dla pozycji z FIX + zatępienie lub FIX + szlif.')
+        return
+      }
+      const areaPerPiece = calcAreaPerPieceM2(
+        line.width,
+        line.height,
+        useTrapezoid ? line.shortSide : null
+      )
+      const areaNum = calcLineAreaM2(
+        line.width,
+        line.height,
+        line.ilosc,
+        useTrapezoid ? line.shortSide : null
+      )
       if (areaPerPiece === null) {
-        setError('Podaj prawidłową szerokość i wysokość (mm) większe od zera dla każdej pozycji.')
+        setError(
+          useTrapezoid
+            ? 'Podaj prawidłową szerokość, wysokość i krótki bok (mm) większe od zera dla każdej pozycji.'
+            : 'Podaj prawidłową szerokość i wysokość (mm) większe od zera dla każdej pozycji.'
+        )
         return
       }
       if (ilosc === null) {
@@ -370,6 +402,7 @@ function App() {
           dodatek: line.dodatek,
           width: line.width,
           height: line.height,
+          shortSide: needsShortSide(line.dodatek) ? line.shortSide : null,
           ilosc: line.ilosc,
           tryb: line.tryb,
           procent,
@@ -592,6 +625,7 @@ function App() {
 
   const rodzaje = getRodzaje(cenniki)
   const dodatkiList = getDodatkiList(dodatki)
+  const showShortSideColumn = lines.some((line) => needsShortSide(line.dodatek))
   const welcomeCompanyName =
     companyName.trim() ||
     (clientProfile?.nazwa && clientProfile.nazwa !== 'Nieznany klient'
@@ -772,9 +806,9 @@ function App() {
           <span className="card-title-required">(WSZYSTKIE POLA WYMAGANE)</span>
         </h2>
         <div className="table-scroll">
-          <div className="product-table">
+          <div className={`product-table${showShortSideColumn ? ' product-table--has-short-side' : ''}`}>
             <div className="product-row product-row--header">
-              {COLUMNS.map((col) => (
+              {COLUMNS.filter((col) => col.key !== 'shortSide' || showShortSideColumn).map((col) => (
                 <div key={col.key} className="cell cell--label">
                   {col.label}
                 </div>
@@ -784,7 +818,13 @@ function App() {
 
             {lines.map((line, lineIndex) => {
               const produkty = getProduktyForRodzaj(cenniki, line.rodzaj)
-              const areaPreview = calcLineAreaM2(line.width, line.height, line.ilosc)
+              const lineNeedsShortSide = needsShortSide(line.dodatek)
+              const areaPreview = calcLineAreaM2(
+                line.width,
+                line.height,
+                line.ilosc,
+                lineNeedsShortSide ? line.shortSide : null
+              )
               const rodzajBanner = getRodzajBannerMessage(line.rodzaj)
 
               return (
@@ -827,7 +867,12 @@ function App() {
                   <div className="cell" data-label="Dodatek">
                     <select
                       value={line.dodatek}
-                      onChange={(e) => updateLine(line.id, { dodatek: e.target.value })}
+                      onChange={(e) => {
+                        const dodatek = e.target.value
+                        const updates = { dodatek }
+                        if (!needsShortSide(dodatek)) updates.shortSide = ''
+                        updateLine(line.id, updates)
+                      }}
                       disabled={loading}
                       aria-label="Dodatek"
                     >
@@ -863,6 +908,25 @@ function App() {
                     />
                   </div>
 
+                  {showShortSideColumn && (
+                    <div className="cell cell--dim" data-label="Krótki bok (mm)">
+                      {lineNeedsShortSide ? (
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={line.shortSide}
+                          onChange={(e) => updateLine(line.id, { shortSide: e.target.value })}
+                          placeholder="mm"
+                          disabled={loading}
+                          aria-label="Krótki bok w mm"
+                        />
+                      ) : (
+                        <span className="cell-placeholder" aria-hidden="true" />
+                      )}
+                    </div>
+                  )}
+
                   <div className="cell cell--qty" data-label="Ilość">
                     <input
                       type="number"
@@ -883,7 +947,11 @@ function App() {
                       placeholder="—"
                       className="input-readonly input-area"
                       aria-label="Powierzchnia m²"
-                      title="Obliczone: szerokość × wysokość (mm) → m²"
+                      title={
+                        lineNeedsShortSide
+                          ? 'Obliczone: średnia z wysokości i krótkiego boku × szerokość (mm) → m²'
+                          : 'Obliczone: szerokość × wysokość (mm) → m²'
+                      }
                     />
                   </div>
 
@@ -1041,7 +1109,7 @@ function App() {
                     <span className="result-pos-sub">{item.dodatek}</span>
                   </div>
                   <div className="result-cell result-cell--dim">
-                    {formatDimensions(item.width, item.height)} × {item.ilosc ?? 1} szt.
+                    {formatDimensions(item.width, item.height, item.shortSide)} × {item.ilosc ?? 1} szt.
                     <span className="result-pos-sub">{formatAreaM2(item.area)} m²</span>
                   </div>
                   <div className="result-cell result-cell--tryb">

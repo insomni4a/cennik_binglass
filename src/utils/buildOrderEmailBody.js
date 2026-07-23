@@ -16,7 +16,7 @@ export function buildOrderEmailBody(order) {
       priceAfter !== priceBase
         ? `${priceBase.toFixed(2)} zł → ${priceAfter.toFixed(2)} zł`
         : `${priceBase.toFixed(2)} zł`
-    return `${index + 1}. ${item.rodzaj} / ${item.produkt} / ${item.dodatek} — ${formatDimensions(item.width, item.height)} × ${qty} szt. (${formatAreaM2(area)} m²)${trybInfo} — ${priceText}`
+    return `${index + 1}. ${item.rodzaj} / ${item.produkt} / ${item.dodatek} — ${formatDimensions(item.width, item.height, item.shortSide)} × ${qty} szt. (${formatAreaM2(area)} m²)${trybInfo} — ${priceText}`
   })
 
   return (

@@ -30,7 +30,7 @@ export async function fetchClient(nip) {
 }
 
 export async function fetchCatalog() {
-  const response = await fetch(apiUrl({ action: 'cenniki' }))
+  const response = await fetch(`${API_URL}?${new URLSearchParams({ action: 'cenniki' })}`)
   if (!response.ok) {
     throw new Error('Błąd połączenia z serwerem (GET cenniki)')
   }
