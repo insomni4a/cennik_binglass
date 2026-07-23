@@ -377,12 +377,13 @@ function App() {
           line.rodzaj,
           line.produkt,
           line.dodatek,
-          line.areaPerPiece
+          line.areaPerPiece,
+          line.areaNum
         )
 
         if (unitPrice === null) {
           setError(
-            `Brak cennika dla: ${DEFAULT_CENNIK} / ${line.rodzaj} / ${line.produkt} / ${line.areaPerPiece} m² (lub nieznany dodatek).`
+            `Brak cennika dla: ${DEFAULT_CENNIK} / ${line.rodzaj} / ${line.produkt} / ${formatAreaM2(line.areaNum)} m² łącznie (lub nieznany dodatek).`
           )
           return
         }
@@ -949,8 +950,8 @@ function App() {
                       aria-label="Powierzchnia m²"
                       title={
                         lineNeedsShortSide
-                          ? 'Obliczone: średnia z wysokości i krótkiego boku × szerokość (mm) → m²'
-                          : 'Obliczone: szerokość × wysokość (mm) → m²'
+                          ? 'Łączna powierzchnia wiersza (formatka × ilość). Próg cenowy w cenniku wg tej sumy.'
+                          : 'Łączna powierzchnia wiersza (szer × wys × ilość). Próg cenowy w cenniku wg tej sumy.'
                       }
                     />
                   </div>

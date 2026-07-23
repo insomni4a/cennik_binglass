@@ -66,7 +66,7 @@ export function getDefaultLineValues(cenniki, dodatki) {
 }
 
 /**
- * Cena za m² produktu (bez dodatku) — zależy od cennika klienta, rodzaju, produktu i zakresu m².
+ * Stawka za m² (bez dodatku) — dopasowanie zakresu Od/Do m² wg przekazanego areaM2.
  */
 export function findProductUnitPrice(cenniki, cennik, rodzaj, produkt, areaM2) {
   const area = Number(areaM2)
@@ -105,7 +105,8 @@ export function findAddonPrice(dodatki, dodatekName) {
 }
 
 /**
- * Cena pozycji = (cena produktu za m² × m²) + cena dodatku
+ * Cena jednej formatki = (stawka za m² × m² formatki) + dodatek.
+ * Stawka wybierana wg tierAreaM2 (łączna pow. wiersza: formatka × ilość).
  */
 export function calculateLinePrice(
   cenniki,
@@ -114,15 +115,22 @@ export function calculateLinePrice(
   rodzaj,
   produkt,
   dodatek,
-  areaM2
+  areaPerPieceM2,
+  tierAreaM2 = areaPerPieceM2
 ) {
-  const unitPrice = findProductUnitPrice(cenniki, cennik, rodzaj, produkt, areaM2)
-  if (unitPrice === null) return null
+  const ratePerM2 = findProductUnitPrice(
+    cenniki,
+    cennik,
+    rodzaj,
+    produkt,
+    tierAreaM2
+  )
+  if (ratePerM2 === null) return null
 
   const addonPrice = findAddonPrice(dodatki, dodatek)
   if (addonPrice === null) return null
 
-  return unitPrice * Number(areaM2) + addonPrice
+  return ratePerM2 * Number(areaPerPieceM2) + addonPrice
 }
 
 export function getTrybProcent(tryby, trybName) {
