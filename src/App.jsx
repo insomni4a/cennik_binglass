@@ -68,6 +68,14 @@ function MinusIcon() {
   )
 }
 
+function FileArrowDownIcon() {
+  return (
+    <svg viewBox="0 0 256 256" width="20" height="20" aria-hidden="true" fill="currentColor">
+      <path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM152,88V44l44,44ZM120,168a8,8,0,0,1,8-8h16V120a8,8,0,0,1,16,0v40h16a8,8,0,0,1,0,16H128A8,8,0,0,1,120,168Z" />
+    </svg>
+  )
+}
+
 function App() {
   const [cenniki, setCenniki] = useState([])
   const [dodatki, setDodatki] = useState([])
@@ -453,6 +461,14 @@ function App() {
   }
 
   const handleGenerateOffer = async () => {
+    await openQuotePdf('offer')
+  }
+
+  const handleGenerateSpec = async () => {
+    await openQuotePdf('spec')
+  }
+
+  const openQuotePdf = async (variant) => {
     const exportQuote = withCurrentCompanyName(quote)
     if (!exportQuote) {
       setError('Najpierw oblicz cenę.')
@@ -477,12 +493,22 @@ function App() {
     }
 
     try {
-      const { generateOfferPdf: generatePdf } = await import('./utils/generateOfferPdf')
-      await generatePdf(exportQuote, pdfWindow)
-      setOfferSuccess(`Oferta PDF dla ${exportQuote.companyName} otwarta w nowej karcie.`)
+      const pdfModule = await import('./utils/generateOfferPdf')
+      if (variant === 'spec') {
+        await pdfModule.generateSpecPdf(exportQuote, pdfWindow)
+        setOfferSuccess(`Specyfikacja PDF (bez cen) dla ${exportQuote.companyName} otwarta w nowej karcie.`)
+      } else {
+        await pdfModule.generateOfferPdf(exportQuote, pdfWindow)
+        setOfferSuccess(`Oferta PDF dla ${exportQuote.companyName} otwarta w nowej karcie.`)
+      }
     } catch (err) {
       pdfWindow.close()
-      setError(err.message || 'Nie udało się wygenerować oferty PDF.')
+      setError(
+        err.message ||
+          (variant === 'spec'
+            ? 'Nie udało się wygenerować specyfikacji PDF.'
+            : 'Nie udało się wygenerować oferty PDF.')
+      )
     } finally {
       setLoading(false)
     }
@@ -637,6 +663,9 @@ function App() {
       welcomeCompanyName &&
       welcomeCompanyName !== 'Nieznany klient'
   )
+  const quoteTotalAreaM2 = quote
+    ? quote.items.reduce((sum, item) => sum + Number(item.area || 0), 0)
+    : 0
 
   return (
     <div className="app-shell">
@@ -1024,14 +1053,26 @@ function App() {
           >
             {loading ? 'Przetwarzanie...' : 'Oblicz cenę'}
           </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleGenerateOffer}
-            disabled={loading || !quote}
-          >
-            {loading ? 'Przetwarzanie...' : 'Wygeneruj ofertę'}
-          </button>
+          <div className="offer-pdf-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleGenerateOffer}
+              disabled={loading || !quote}
+            >
+              {loading ? 'Przetwarzanie...' : 'Wygeneruj ofertę'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-icon-only"
+              onClick={handleGenerateSpec}
+              disabled={loading || !quote}
+              title="Pobierz specyfikację PDF (bez cen)"
+              aria-label="Pobierz specyfikację PDF bez cen"
+            >
+              <FileArrowDownIcon />
+            </button>
+          </div>
           <button
             type="button"
             className="btn btn-order"
@@ -1076,6 +1117,10 @@ function App() {
                   <span className="result-meta-value">{quote.procentRabatu}%</span>
                 </div>
               )}
+              <div className="result-meta-item">
+                <span className="result-meta-label">Łącznie m²</span>
+                <span className="result-meta-value">{formatAreaM2(quoteTotalAreaM2)} m²</span>
+              </div>
               {!quote.found && <span className="result-note">Nieznany klient</span>}
             </div>
 
@@ -1133,6 +1178,10 @@ function App() {
 
             <div className="result-footer">
               <div className="result-footer-rows">
+                <div className="result-footer-row result-footer-row--area">
+                  <span>Łączna powierzchnia</span>
+                  <span>{formatAreaM2(quoteTotalAreaM2)} m²</span>
+                </div>
                 <div className="result-footer-row">
                   <span>Suma pozycji</span>
                   <span>{quote.subtotal.toFixed(2)} zł</span>

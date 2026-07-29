@@ -5,11 +5,16 @@ import { formatNip } from './nipValidation'
 
 pdfMake.addVirtualFileSystem(pdfFonts)
 
+const PRICE_GREEN = '#047857'
+const SPEC_TABLE_ROW_HEIGHT = 22
+
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
 }
 
-const PRICE_GREEN = '#047857'
+function sumItemsAreaM2(items) {
+  return items.reduce((sum, item) => sum + Number(item.area || 0), 0)
+}
 
 function greenArrowCanvas() {
   return {
@@ -38,134 +43,180 @@ function formatDate() {
   })
 }
 
+function buildShapeCanvas(item, maxDrawW, maxDrawH) {
+  const wMm = Number(item.width)
+  const hLongMm = Number(item.height)
+  const hShortMm =
+    item.shortSide != null && item.shortSide !== '' ? Number(item.shortSide) : null
+  const isTrapezoid = hShortMm != null && hShortMm > 0
+  const maxHMm = isTrapezoid ? Math.max(hLongMm, hShortMm) : hLongMm
+  const scale = Math.min(maxDrawW / wMm, maxDrawH / maxHMm)
+  const rectW = Math.max(wMm * scale, 8)
+  const rectH = Math.max(maxHMm * scale, 6)
+  const pad = 4
+
+  if (isTrapezoid) {
+    const leftH = hShortMm * scale
+    const rightH = hLongMm * scale
+    const yBase = pad + rectH
+    return {
+      canvas: [
+        {
+          type: 'polyline',
+          lineWidth: 1,
+          lineColor: '#2563eb',
+          color: '#eff6ff',
+          closePath: true,
+          points: [
+            { x: pad, y: yBase },
+            { x: pad + rectW, y: yBase },
+            { x: pad + rectW, y: yBase - rightH },
+            { x: pad, y: yBase - leftH },
+          ],
+        },
+      ],
+      width: rectW + pad * 2,
+      height: rectH + pad * 2,
+    }
+  }
+
+  return {
+    canvas: [
+      {
+        type: 'rect',
+        x: pad,
+        y: pad,
+        w: rectW,
+        h: rectH,
+        r: 0,
+        lineWidth: 1,
+        lineColor: '#2563eb',
+        color: '#eff6ff',
+      },
+    ],
+    width: rectW + pad * 2,
+    height: rectH + pad * 2,
+  }
+}
+
+function buildPieceStackUnderRow(item, rowHeight = SPEC_TABLE_ROW_HEIGHT) {
+  const ilosc = Math.max(1, Number(item.ilosc ?? 1))
+  const drawH = Math.max(rowHeight - 4, 14)
+
+  return {
+    stack: Array.from({ length: ilosc }, (_, pieceIndex) => ({
+      columns: [
+        {
+          width: 28,
+          text: `${pieceIndex + 1}/${ilosc}`,
+          fontSize: 7,
+          color: '#6b7280',
+          margin: [0, drawH / 2 - 4, 0, 0],
+        },
+        {
+          width: '*',
+          ...buildShapeCanvas(item, 110, drawH),
+          alignment: 'left',
+        },
+      ],
+      columnGap: 6,
+      margin: [0, 2, 0, 2],
+    })),
+  }
+}
 
 /** Rysunek szkła z wymiarami (prostokąt lub trapez przy FIX). */
-function buildGlassDrawing(item, index) {
+function buildGlassDrawing(item, index, { showPrices = true } = {}) {
   const wMm = Number(item.width)
   const hLongMm = Number(item.height)
   const hShortMm =
     item.shortSide != null && item.shortSide !== '' ? Number(item.shortSide) : null
   const isTrapezoid = hShortMm != null && hShortMm > 0
   const ilosc = Number(item.ilosc ?? 1)
-  const maxDrawW = 130
-  const maxDrawH = 75
-  const maxHMm = isTrapezoid ? Math.max(hLongMm, hShortMm) : hLongMm
-  const scale = Math.min(maxDrawW / wMm, maxDrawH / maxHMm)
-  const rectW = Math.max(wMm * scale, 20)
-  const rectH = Math.max(maxHMm * scale, 15)
-  const pad = 10
-
-  const canvasW = rectW + pad * 2
-  const canvasH = rectH + pad * 2
-
-  let shapeCanvas
-  if (isTrapezoid) {
-    const leftH = hShortMm * scale
-    const rightH = hLongMm * scale
-    const yBase = pad + rectH
-    shapeCanvas = {
-      type: 'polyline',
-      lineWidth: 1.5,
-      lineColor: '#2563eb',
-      color: '#eff6ff',
-      closePath: true,
-      points: [
-        { x: pad, y: yBase },
-        { x: pad + rectW, y: yBase },
-        { x: pad + rectW, y: yBase - rightH },
-        { x: pad, y: yBase - leftH },
-      ],
-    }
-  } else {
-    shapeCanvas = {
-      type: 'rect',
-      x: pad,
-      y: pad,
-      w: rectW,
-      h: rectH,
-      r: 0,
-      lineWidth: 1.5,
-      lineColor: '#2563eb',
-      color: '#eff6ff',
-    }
-  }
+  const shape = buildShapeCanvas(item, 130, 75)
 
   const dimLabel = isTrapezoid
     ? `${wMm} × ${hLongMm}/${hShortMm} mm`
     : `${wMm} × ${hLongMm} mm`
 
+  const stack = [
+    {
+      text: `Pozycja ${index + 1}`,
+      style: 'drawingTitle',
+      margin: [0, 0, 0, 2],
+    },
+    {
+      text: `${item.rodzaj} · ${item.produkt}`,
+      fontSize: 9,
+      color: '#555',
+      margin: [0, 0, 0, 6],
+    },
+    {
+      ...shape,
+      alignment: 'center',
+    },
+    {
+      text: `${dimLabel}${ilosc > 1 ? ` · ${ilosc} szt.` : ''}`,
+      fontSize: 9,
+      alignment: 'center',
+      color: '#374151',
+      margin: [0, 4, 0, 0],
+    },
+    {
+      text: `Powierzchnia: ${formatAreaM2(item.area)} m²  ·  Dodatek: ${item.dodatek}`,
+      fontSize: 8,
+      color: '#666',
+      margin: [0, 4, 0, 0],
+    },
+  ]
+
+  if (showPrices) {
+    stack.push({
+      text:
+        item.lineTotalAfterRabat != null && item.lineTotalAfterRabat !== item.lineTotal
+          ? {
+              columns: [
+                { text: `Cena: ${formatMoney(item.lineTotal)}`, fontSize: 9, width: 'auto' },
+                greenArrowCanvas(),
+                {
+                  ...priceAfterRabatText(item.lineTotalAfterRabat),
+                  fontSize: 9,
+                  width: 'auto',
+                },
+              ],
+              columnGap: 2,
+            }
+          : `Cena pozycji: ${formatMoney(item.lineTotal)}`,
+      fontSize: 9,
+      bold: item.lineTotalAfterRabat == null || item.lineTotalAfterRabat === item.lineTotal,
+      margin: [0, 2, 0, 0],
+    })
+  }
+
   return {
     width: '48%',
-    stack: [
-      {
-        text: `Pozycja ${index + 1}`,
-        style: 'drawingTitle',
-        margin: [0, 0, 0, 2],
-      },
-      {
-        text: `${item.rodzaj} · ${item.produkt}`,
-        fontSize: 9,
-        color: '#555',
-        margin: [0, 0, 0, 6],
-      },
-      {
-        canvas: [shapeCanvas],
-        width: canvasW,
-        height: canvasH,
-        alignment: 'center',
-      },
-      {
-        text: `${dimLabel}${ilosc > 1 ? ` · ${ilosc} szt.` : ''}`,
-        fontSize: 9,
-        alignment: 'center',
-        color: '#374151',
-        margin: [0, 4, 0, 0],
-      },
-      {
-        text: `Powierzchnia: ${formatAreaM2(item.area)} m²  ·  Dodatek: ${item.dodatek}`,
-        fontSize: 8,
-        color: '#666',
-        margin: [0, 4, 0, 0],
-      },
-      {
-        text:
-          item.lineTotalAfterRabat != null && item.lineTotalAfterRabat !== item.lineTotal
-            ? {
-                columns: [
-                  { text: `Cena: ${formatMoney(item.lineTotal)}`, fontSize: 9, width: 'auto' },
-                  greenArrowCanvas(),
-                  {
-                    ...priceAfterRabatText(item.lineTotalAfterRabat),
-                    fontSize: 9,
-                    width: 'auto',
-                  },
-                ],
-                columnGap: 2,
-              }
-            : `Cena pozycji: ${formatMoney(item.lineTotal)}`,
-        fontSize: 9,
-        bold: item.lineTotalAfterRabat == null || item.lineTotalAfterRabat === item.lineTotal,
-        margin: [0, 2, 0, 0],
-      },
-    ],
+    stack,
     margin: [0, 0, 8, 14],
   }
 }
 
-/** Układa rysunki w rzędach po 2. */
-function buildDrawingsGrid(items) {
+function buildDrawingsGrid(items, { showPrices = true } = {}) {
   const rows = []
   for (let i = 0; i < items.length; i += 2) {
-    const cols = [buildGlassDrawing(items[i], i)]
+    const cols = [buildGlassDrawing(items[i], i, { showPrices })]
     if (items[i + 1]) {
-      cols.push(buildGlassDrawing(items[i + 1], i + 1))
+      cols.push(buildGlassDrawing(items[i + 1], i + 1, { showPrices }))
     }
     rows.push({ columns: cols, columnGap: 10 })
   }
   return rows
 }
 
-export function buildOfferDocDefinition(quote) {
+function emptyColSpanCells(colSpan, totalCols) {
+  return Array.from({ length: totalCols - colSpan }, () => ({}))
+}
+
+function buildOfferTableBody(quote) {
   const hasRabat = Number(quote.procentRabatu) > 0
   const tableHeader = [
     { text: 'Lp.', style: 'tableHeader' },
@@ -204,6 +255,190 @@ export function buildOfferDocDefinition(quote) {
     ]),
   ]
 
+  return {
+    hasRabat,
+    tableBody,
+    widths: hasRabat
+      ? [22, 40, '*', 48, 62, 24, 28, 52, 52, 52]
+      : [22, 40, '*', 48, 62, 24, 28, 52, 52],
+  }
+}
+
+function buildSpecTableBody(quote) {
+  const colCount = 8
+  const tableHeader = [
+    { text: 'Lp.', style: 'tableHeader' },
+    { text: 'Rodzaj', style: 'tableHeader' },
+    { text: 'Produkt', style: 'tableHeader' },
+    { text: 'Dodatek', style: 'tableHeader' },
+    { text: 'Wymiary', style: 'tableHeader' },
+    { text: 'Ilość', style: 'tableHeader', alignment: 'right' },
+    { text: 'm²', style: 'tableHeader', alignment: 'right' },
+    { text: 'Tryb', style: 'tableHeader' },
+  ]
+
+  const tableBody = [tableHeader]
+
+  quote.items.forEach((item, i) => {
+    tableBody.push([
+      String(i + 1),
+      item.rodzaj,
+      item.produkt,
+      item.dodatek,
+      formatDimensions(item.width, item.height, item.shortSide),
+      { text: String(item.ilosc ?? 1), alignment: 'right' },
+      { text: formatAreaM2(item.area), alignment: 'right' },
+      `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
+    ])
+
+    tableBody.push([
+      {
+        colSpan: colCount,
+        stack: [buildPieceStackUnderRow(item)],
+        fillColor: '#f8fafc',
+      },
+      ...emptyColSpanCells(colCount, colCount),
+    ])
+  })
+
+  return {
+    tableBody,
+    widths: [22, 40, '*', 48, 62, 24, 28, 52],
+  }
+}
+
+function buildTotalAreaBlock(totalAreaM2) {
+  return {
+    columns: [
+      { width: '*', text: '' },
+      {
+        width: 220,
+        text: [
+          { text: 'Łączna powierzchnia: ', bold: true },
+          { text: `${formatAreaM2(totalAreaM2)} m²`, bold: true, color: '#1e40af' },
+        ],
+        alignment: 'right',
+        margin: [0, 10, 0, 0],
+        fontSize: 10,
+      },
+    ],
+  }
+}
+
+function buildPriceSummary(quote, hasRabat) {
+  return {
+    columns: [
+      { width: '*', text: '' },
+      {
+        width: 220,
+        stack: [
+          {
+            columns: [
+              { text: 'Suma pozycji:', width: '*' },
+              { text: formatMoney(quote.subtotal), alignment: 'right', width: 80 },
+            ],
+            margin: [0, 12, 0, 4],
+          },
+          quote.surcharge > 0
+            ? {
+                columns: [
+                  { text: 'Narzut trybu (łącznie):', width: '*' },
+                  { text: `+${formatMoney(quote.surcharge)}`, alignment: 'right', width: 80 },
+                ],
+                margin: [0, 0, 0, 4],
+              }
+            : { text: '' },
+          quote.discountAmount > 0
+            ? {
+                columns: [
+                  { text: `Rabat (${quote.procentRabatu}%):`, width: '*' },
+                  {
+                    text: `-${formatMoney(quote.discountAmount)}`,
+                    alignment: 'right',
+                    width: 80,
+                  },
+                ],
+                margin: [0, 0, 0, 4],
+              }
+            : { text: '' },
+          {
+            columns: [
+              { text: 'RAZEM:', bold: true, width: '*' },
+              {
+                text: formatMoney(quote.totalPrice),
+                alignment: 'right',
+                width: 80,
+                style: hasRabat ? 'priceGreen' : 'total',
+              },
+            ],
+            margin: [0, 4, 0, 0],
+          },
+        ],
+      },
+    ],
+  }
+}
+
+const TABLE_LAYOUT = {
+  hLineWidth: () => 0.5,
+  vLineWidth: () => 0.5,
+  hLineColor: () => '#e2e8f0',
+  vLineColor: () => '#e2e8f0',
+  paddingLeft: () => 6,
+  paddingRight: () => 6,
+  paddingTop: () => 5,
+  paddingBottom: () => 5,
+}
+
+export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
+  const isSpec = variant === 'spec'
+  const hasRabat = !isSpec && Number(quote.procentRabatu) > 0
+  const totalAreaM2 = sumItemsAreaM2(quote.items)
+  const table = isSpec ? buildSpecTableBody(quote) : buildOfferTableBody(quote)
+
+  const clientRightColumn = isSpec
+    ? [
+        {
+          text: [
+            { text: 'Tryb realizacji: ', bold: true },
+            quote.tryb === 'Różne'
+              ? 'różny wg pozycji (patrz tabela)'
+              : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
+          ],
+        },
+        {
+          text: [
+            { text: 'Łącznie m²: ', bold: true },
+            `${formatAreaM2(totalAreaM2)} m²`,
+          ],
+          margin: [0, 4, 0, 0],
+        },
+      ]
+    : [
+        {
+          text: [
+            { text: 'Rabat: ', bold: true },
+            quote.procentRabatu > 0 ? `${quote.procentRabatu}%` : 'brak',
+          ],
+        },
+        {
+          text: [
+            { text: 'Tryb realizacji: ', bold: true },
+            quote.tryb === 'Różne'
+              ? 'różny wg pozycji (patrz tabela)'
+              : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
+          ],
+          margin: [0, 4, 0, 0],
+        },
+        {
+          text: [
+            { text: 'Łącznie m²: ', bold: true },
+            `${formatAreaM2(totalAreaM2)} m²`,
+          ],
+          margin: [0, 4, 0, 0],
+        },
+      ]
+
   const docDefinition = {
     pageSize: 'A4',
     pageMargins: [40, 50, 40, 50],
@@ -220,7 +455,10 @@ export function buildOfferDocDefinition(quote) {
     },
     content: [
       { text: 'Cennik Binglass', style: 'title' },
-      { text: 'Oferta / zapytanie ofertowe', style: 'subtitle' },
+      {
+        text: isSpec ? 'Specyfikacja wymiarowa' : 'Oferta / zapytanie ofertowe',
+        style: 'subtitle',
+      },
       { text: `Data wygenerowania: ${formatDate()}`, fontSize: 9, color: '#888', margin: [0, 8, 0, 0] },
 
       { text: 'Dane klienta', style: 'section' },
@@ -235,28 +473,12 @@ export function buildOfferDocDefinition(quote) {
           },
           {
             width: '*',
-            stack: [
-              {
-                text: [
-                  { text: 'Rabat: ', bold: true },
-                  quote.procentRabatu > 0 ? `${quote.procentRabatu}%` : 'brak',
-                ],
-              },
-              {
-                text: [
-                  { text: 'Tryb realizacji: ', bold: true },
-                  quote.tryb === 'Różne'
-                    ? 'różny wg pozycji (patrz tabela)'
-                    : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
-                ],
-                margin: [0, 4, 0, 0],
-              },
-            ],
+            stack: clientRightColumn,
           },
         ],
       },
 
-      !quote.found
+      !isSpec && !quote.found
         ? {
             text: 'Uwaga: klient nieznany w bazie — zastosowano rabat domyślny (jeśli ustawiony w arkuszu).',
             fontSize: 9,
@@ -265,80 +487,31 @@ export function buildOfferDocDefinition(quote) {
           }
         : { text: '' },
 
-      { text: 'Pozycje oferty', style: 'section' },
+      { text: isSpec ? 'Pozycje — wymiary i formatek' : 'Pozycje oferty', style: 'section' },
       {
         table: {
           headerRows: 1,
-          widths: hasRabat
-            ? [22, 40, '*', 48, 62, 24, 28, 52, 52, 52]
-            : [22, 40, '*', 48, 62, 24, 28, 52, 52],
-          body: tableBody,
+          widths: table.widths,
+          body: table.tableBody,
         },
-        layout: {
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
-          hLineColor: () => '#e2e8f0',
-          vLineColor: () => '#e2e8f0',
-          paddingLeft: () => 6,
-          paddingRight: () => 6,
-          paddingTop: () => 5,
-          paddingBottom: () => 5,
-        },
+        layout: TABLE_LAYOUT,
       },
 
+      buildTotalAreaBlock(totalAreaM2),
+
+      ...(isSpec ? [] : [buildPriceSummary(quote, hasRabat)]),
+
       {
-        columns: [
-          { width: '*', text: '' },
-          {
-            width: 220,
-            stack: [
-              {
-                columns: [
-                  { text: 'Suma pozycji:', width: '*' },
-                  { text: formatMoney(quote.subtotal), alignment: 'right', width: 80 },
-                ],
-                margin: [0, 12, 0, 4],
-              },
-              quote.surcharge > 0
-                ? {
-                    columns: [
-                      { text: 'Narzut trybu (łącznie):', width: '*' },
-                      { text: `+${formatMoney(quote.surcharge)}`, alignment: 'right', width: 80 },
-                    ],
-                    margin: [0, 0, 0, 4],
-                  }
-                : { text: '' },
-              quote.discountAmount > 0
-                ? {
-                    columns: [
-                      { text: `Rabat (${quote.procentRabatu}%):`, width: '*' },
-                      { text: `-${formatMoney(quote.discountAmount)}`, alignment: 'right', width: 80 },
-                    ],
-                    margin: [0, 0, 0, 4],
-                  }
-                : { text: '' },
-              {
-                columns: [
-                  { text: 'RAZEM:', bold: true, width: '*' },
-                  {
-                    text: formatMoney(quote.totalPrice),
-                    alignment: 'right',
-                    width: 80,
-                    style: hasRabat ? 'priceGreen' : 'total',
-                  },
-                ],
-                margin: [0, 4, 0, 0],
-              },
-            ],
-          },
-        ],
+        text: 'Rysunki wymiarowe',
+        style: 'section',
+        pageBreak: quote.items.length > 2 ? 'before' : undefined,
       },
-
-      { text: 'Rysunki wymiarowe', style: 'section', pageBreak: quote.items.length > 2 ? 'before' : undefined },
-      ...buildDrawingsGrid(quote.items),
+      ...buildDrawingsGrid(quote.items, { showPrices: !isSpec }),
 
       {
-        text: 'Oferta ma charakter informacyjny. Ostateczna cena może ulec zmianie po weryfikacji zamówienia.',
+        text: isSpec
+          ? 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.'
+          : 'Oferta ma charakter informacyjny. Ostateczna cena może ulec zmianie po weryfikacji zamówienia.',
         style: 'footer',
         margin: [0, 24, 0, 0],
       },
@@ -349,11 +522,16 @@ export function buildOfferDocDefinition(quote) {
 }
 
 export async function getOfferPdfBase64(quote) {
-  const docDefinition = buildOfferDocDefinition(quote)
+  const docDefinition = buildOfferDocDefinition(quote, { variant: 'offer' })
   return pdfMake.createPdf(docDefinition).getBase64()
 }
 
 export async function generateOfferPdf(quote, targetWindow = null) {
-  const docDefinition = buildOfferDocDefinition(quote)
+  const docDefinition = buildOfferDocDefinition(quote, { variant: 'offer' })
+  await pdfMake.createPdf(docDefinition).open(targetWindow)
+}
+
+export async function generateSpecPdf(quote, targetWindow = null) {
+  const docDefinition = buildOfferDocDefinition(quote, { variant: 'spec' })
   await pdfMake.createPdf(docDefinition).open(targetWindow)
 }

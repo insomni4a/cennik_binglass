@@ -428,6 +428,27 @@
   padding-top: 1rem;
   margin-top: 0.25rem;
   border-top: 1px solid var(--border);
+  align-items: center;
+}
+
+.offer-pdf-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.btn-icon-only {
+  min-width: 2.75rem;
+  width: 2.75rem;
+  padding: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-footer-row--area span:last-child {
+  color: #1e40af;
+  font-weight: 700;
 }
 
 .btn {
