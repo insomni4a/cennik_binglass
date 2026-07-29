@@ -119,34 +119,22 @@ function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
   }
 }
 
-/** Osobny wiersz pod produktem: liczba sztuk nad poziomym rzędem ikon square. */
+/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do prawej. */
 function buildSquareRowUnderProduct(ilosc) {
   const count = Math.max(1, Number(ilosc ?? 1))
   return {
-    stack: [
+    columns: [
+      { width: '*', text: '' },
       {
-        text: String(count),
-        alignment: 'center',
-        fontSize: 10,
-        bold: true,
-        margin: [0, 4, 0, 6],
-      },
-      {
-        columns: [
-          { width: '*', text: '' },
-          {
-            width: 'auto',
-            columns: Array.from({ length: count }, () => ({
-              width: 'auto',
-              ...buildSquareIconCanvas(),
-            })),
-            columnGap: 6,
-          },
-          { width: '*', text: '' },
-        ],
+        width: 'auto',
+        columns: Array.from({ length: count }, () => ({
+          width: 'auto',
+          ...buildSquareIconCanvas(),
+        })),
+        columnGap: 6,
       },
     ],
-    margin: [0, 2, 0, 4],
+    margin: [0, 4, 0, 4],
   }
 }
 
