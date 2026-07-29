@@ -119,12 +119,11 @@ function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
   }
 }
 
-/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do prawej. */
+/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej. */
 function buildSquareRowUnderProduct(ilosc) {
   const count = Math.max(1, Number(ilosc ?? 1))
   return {
     columns: [
-      { width: '*', text: '' },
       {
         width: 'auto',
         columns: Array.from({ length: count }, () => ({
@@ -133,6 +132,7 @@ function buildSquareRowUnderProduct(ilosc) {
         })),
         columnGap: 6,
       },
+      { width: '*', text: '' },
     ],
     margin: [0, 4, 0, 4],
   }
@@ -140,6 +140,16 @@ function buildSquareRowUnderProduct(ilosc) {
 
 function emptyColSpanCells(colSpan, totalCols) {
   return Array.from({ length: totalCols - colSpan }, () => ({}))
+}
+
+function groupItemsByRodzaj(items) {
+  const map = new Map()
+  for (const item of items) {
+    if (!map.has(item.rodzaj)) map.set(item.rodzaj, [])
+    map.get(item.rodzaj).push(item)
+  }
+  const order = [...new Set(items.map((item) => item.rodzaj))]
+  return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
 /** Rysunek szkła z wymiarami (prostokąt lub trapez przy FIX). */
@@ -217,19 +227,19 @@ function buildGlassDrawing(item, index, { showPrices = true } = {}) {
   }
 }
 
-function buildDrawingsGrid(items, { showPrices = true } = {}) {
+function buildDrawingsGrid(items, { showPrices = true, startIndex = 0 } = {}) {
   const rows = []
   for (let i = 0; i < items.length; i += 2) {
-    const cols = [buildGlassDrawing(items[i], i, { showPrices })]
+    const cols = [buildGlassDrawing(items[i], startIndex + i, { showPrices })]
     if (items[i + 1]) {
-      cols.push(buildGlassDrawing(items[i + 1], i + 1, { showPrices }))
+      cols.push(buildGlassDrawing(items[i + 1], startIndex + i + 1, { showPrices }))
     }
     rows.push({ columns: cols, columnGap: 10 })
   }
   return rows
 }
 
-function buildOfferTableBody(quote) {
+function buildOfferTableBody(items, quote, startLp = 1) {
   const hasRabat = Number(quote.procentRabatu) > 0
   const tableHeader = [
     { text: 'Lp.', style: 'tableHeader' },
@@ -246,8 +256,8 @@ function buildOfferTableBody(quote) {
 
   const tableBody = [
     tableHeader,
-    ...quote.items.map((item, i) => [
-      String(i + 1),
+    ...items.map((item, i) => [
+      String(startLp + i),
       item.rodzaj,
       item.produkt,
       item.dodatek,
@@ -277,7 +287,7 @@ function buildOfferTableBody(quote) {
   }
 }
 
-function buildSpecTableBody(quote) {
+function buildSpecTableBody(items, startLp = 1) {
   const colCount = 8
   const tableHeader = [
     { text: 'Lp.', style: 'tableHeader' },
@@ -292,9 +302,9 @@ function buildSpecTableBody(quote) {
 
   const tableBody = [tableHeader]
 
-  quote.items.forEach((item, i) => {
+  items.forEach((item, i) => {
     tableBody.push([
-      String(i + 1),
+      String(startLp + i),
       item.rodzaj,
       item.produkt,
       item.dodatek,
@@ -407,7 +417,7 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
   const isSpec = variant === 'spec'
   const hasRabat = !isSpec && Number(quote.procentRabatu) > 0
   const totalAreaM2 = sumItemsAreaM2(quote.items)
-  const table = isSpec ? buildSpecTableBody(quote) : buildOfferTableBody(quote)
+  const rodzajGroups = groupItemsByRodzaj(quote.items)
 
   const clientRightColumn = isSpec
     ? [
@@ -451,6 +461,44 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
           margin: [0, 4, 0, 0],
         },
       ]
+
+  const rodzajContent = []
+  let globalLp = 1
+
+  rodzajGroups.forEach((group) => {
+    const table = isSpec
+      ? buildSpecTableBody(group.items, globalLp)
+      : buildOfferTableBody(group.items, quote, globalLp)
+
+    rodzajContent.push(
+      {
+        text: isSpec
+          ? `Pozycje — wymiary i formatek: ${group.rodzaj}`
+          : `Pozycje oferty: ${group.rodzaj}`,
+        style: 'section',
+        pageBreak: 'before',
+      },
+      {
+        table: {
+          headerRows: 1,
+          widths: table.widths,
+          body: table.tableBody,
+        },
+        layout: TABLE_LAYOUT,
+      },
+      {
+        text: `Rysunki wymiarowe — ${group.rodzaj}`,
+        style: 'section',
+        pageBreak: 'before',
+      },
+      ...buildDrawingsGrid(group.items, {
+        showPrices: !isSpec,
+        startIndex: globalLp - 1,
+      })
+    )
+
+    globalLp += group.items.length
+  })
 
   const docDefinition = {
     pageSize: 'A4',
@@ -500,26 +548,11 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
           }
         : { text: '' },
 
-      { text: isSpec ? 'Pozycje — wymiary i formatek' : 'Pozycje oferty', style: 'section' },
-      {
-        table: {
-          headerRows: 1,
-          widths: table.widths,
-          body: table.tableBody,
-        },
-        layout: TABLE_LAYOUT,
-      },
+      ...rodzajContent,
 
       buildTotalAreaBlock(totalAreaM2),
 
       ...(isSpec ? [] : [buildPriceSummary(quote, hasRabat)]),
-
-      {
-        text: 'Rysunki wymiarowe',
-        style: 'section',
-        pageBreak: quote.items.length > 2 ? 'before' : undefined,
-      },
-      ...buildDrawingsGrid(quote.items, { showPrices: !isSpec }),
 
       {
         text: isSpec
