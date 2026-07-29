@@ -152,15 +152,131 @@ function groupItemsByRodzaj(items) {
   return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
+function buildBrandedLogoBox() {
+  const boxW = 128
+  return {
+    width: boxW,
+    table: {
+      widths: [boxW],
+      body: [
+        [
+          {
+            text: 'Cennik Binglass',
+            alignment: 'center',
+            bold: true,
+            fontSize: 10,
+            color: '#1a1a2e',
+            margin: [6, 10, 6, 10],
+          },
+        ],
+      ],
+    },
+    layout: {
+      hLineWidth: () => 1.2,
+      vLineWidth: () => 1.2,
+      hLineColor: () => '#2563eb',
+      vLineColor: () => '#2563eb',
+      paddingLeft: () => 2,
+      paddingRight: () => 2,
+      paddingTop: () => 2,
+      paddingBottom: () => 2,
+    },
+  }
+}
+
+function buildClientDataBlock(quote, clientRightColumn, { showUnknownWarning = false } = {}) {
+  return {
+    stack: [
+      { text: 'Dane klienta', style: 'sectionFirst' },
+      {
+        columns: [
+          {
+            width: '*',
+            stack: [
+              { text: [{ text: 'Firma: ', bold: true }, quote.companyName] },
+              {
+                text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
+                margin: [0, 4, 0, 0],
+              },
+            ],
+          },
+          {
+            width: '*',
+            stack: clientRightColumn,
+          },
+          buildBrandedLogoBox(),
+        ],
+        columnGap: 10,
+      },
+      showUnknownWarning
+        ? {
+            text: 'Uwaga: klient nieznany w bazie — zastosowano rabat domyślny (jeśli ustawiony w arkuszu).',
+            fontSize: 9,
+            color: '#92400e',
+            margin: [0, 8, 0, 0],
+          }
+        : { text: '' },
+    ],
+    margin: [0, 0, 0, 4],
+  }
+}
+
+function buildDocHeader(isSpec) {
+  return [
+    { text: 'Cennik Binglass', style: 'title' },
+    {
+      text: isSpec ? 'Specyfikacja wymiarowa' : 'Oferta / zapytanie ofertowe',
+      style: 'subtitle',
+    },
+    {
+      text: `Data wygenerowania: ${formatDate()}`,
+      fontSize: 9,
+      color: '#888',
+      margin: [0, 8, 0, 10],
+    },
+  ]
+}
+
+function buildPozycjeHeader(rodzaj, isSpec) {
+  const label = isSpec ? 'Pozycje — wymiary i formatek: ' : 'Pozycje oferty: '
+  return {
+    text: [
+      { text: label, fontSize: 11, bold: true, color: '#1e40af' },
+      { text: rodzaj, fontSize: 22, bold: true, color: '#1e40af' },
+    ],
+    margin: [0, 6, 0, 8],
+  }
+}
+
+function buildDrawingsHeader(rodzaj) {
+  return {
+    text: [
+      { text: 'Rysunki wymiarowe — ', fontSize: 11, bold: true, color: '#1e40af' },
+      { text: rodzaj, fontSize: 11, bold: true, color: '#1e40af' },
+    ],
+    margin: [0, 8, 0, 6],
+  }
+}
+
+function getDrawingScale(itemCount) {
+  if (itemCount <= 2) return { maxDrawW: 130, maxDrawH: 72, marginBottom: 12 }
+  if (itemCount <= 4) return { maxDrawW: 108, maxDrawH: 58, marginBottom: 10 }
+  if (itemCount <= 6) return { maxDrawW: 88, maxDrawH: 46, marginBottom: 8 }
+  return { maxDrawW: 74, maxDrawH: 38, marginBottom: 6 }
+}
 /** Rysunek szkła z wymiarami (prostokąt lub trapez przy FIX). */
-function buildGlassDrawing(item, index, { showPrices = true } = {}) {
+function buildGlassDrawing(
+  item,
+  index,
+  { showPrices = true, maxDrawW = 130, maxDrawH = 72, marginBottom = 12 } = {}
+) {
   const wMm = Number(item.width)
   const hLongMm = Number(item.height)
   const hShortMm =
     item.shortSide != null && item.shortSide !== '' ? Number(item.shortSide) : null
   const isTrapezoid = hShortMm != null && hShortMm > 0
   const ilosc = Number(item.ilosc ?? 1)
-  const shape = buildShapeCanvas(item, 130, 75)
+  const shape = buildShapeCanvas(item, maxDrawW, maxDrawH)
 
   const dimLabel = isTrapezoid
     ? `${wMm} × ${hLongMm}/${hShortMm} mm`
@@ -223,16 +339,20 @@ function buildGlassDrawing(item, index, { showPrices = true } = {}) {
   return {
     width: '48%',
     stack,
-    margin: [0, 0, 8, 14],
+    margin: [0, 0, 8, marginBottom],
   }
 }
 
-function buildDrawingsGrid(items, { showPrices = true, startIndex = 0 } = {}) {
+function buildDrawingsGrid(
+  items,
+  { showPrices = true, startIndex = 0, maxDrawW = 130, maxDrawH = 72, marginBottom = 12 } = {}
+) {
   const rows = []
   for (let i = 0; i < items.length; i += 2) {
-    const cols = [buildGlassDrawing(items[i], startIndex + i, { showPrices })]
+    const drawOpts = { showPrices, maxDrawW, maxDrawH, marginBottom }
+    const cols = [buildGlassDrawing(items[i], startIndex + i, drawOpts)]
     if (items[i + 1]) {
-      cols.push(buildGlassDrawing(items[i + 1], startIndex + i + 1, { showPrices }))
+      cols.push(buildGlassDrawing(items[i + 1], startIndex + i + 1, drawOpts))
     }
     rows.push({ columns: cols, columnGap: 10 })
   }
@@ -366,8 +486,8 @@ function buildRodzajSummaryTable(items) {
         text: formatDimensions(item.width, item.height, item.shortSide),
         fontSize: SUMMARY_TABLE_FONT,
       },
-      { text: String(item.ilosc ?? 1), fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
-      { text: formatAreaM2(item.area), fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+      { text: `${item.ilosc ?? 1} szt`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+      { text: `${formatAreaM2(item.area)} m2`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
     ]),
   ]
 
@@ -382,31 +502,50 @@ function buildRodzajSummaryTable(items) {
   }
 }
 
-function buildRodzajSection(group, table, { isSpec, showPrices, startIndex, isFirstGroup }) {
-  return [
-    {
-      text: isSpec
-        ? `Pozycje — wymiary i formatek: ${group.rodzaj}`
-        : `Pozycje oferty: ${group.rodzaj}`,
-      style: isFirstGroup ? 'sectionFirst' : 'section',
-      pageBreak: isFirstGroup ? undefined : 'before',
-    },
-    {
-      table: {
-        headerRows: 1,
-        widths: table.widths,
-        body: table.tableBody,
+function buildRodzajSection(
+  group,
+  table,
+  quote,
+  clientRightColumn,
+  { isSpec, showPrices, startIndex, isFirstGroup, showUnknownWarning }
+) {
+  const drawingScale = getDrawingScale(group.items.length)
+  const sectionParts = []
+
+  if (isFirstGroup) {
+    sectionParts.push(...buildDocHeader(isSpec))
+  } else {
+    sectionParts.push({ text: '', pageBreak: 'before' })
+  }
+
+  sectionParts.push({
+    unbreakable: true,
+    stack: [
+      buildClientDataBlock(quote, clientRightColumn, { showUnknownWarning }),
+      buildPozycjeHeader(group.rodzaj, isSpec),
+      {
+        table: {
+          headerRows: 1,
+          widths: table.widths,
+          body: table.tableBody,
+        },
+        layout: TABLE_LAYOUT,
       },
-      layout: TABLE_LAYOUT,
-    },
-    {
-      text: `Rysunki wymiarowe — ${group.rodzaj}`,
-      style: 'sectionSub',
-    },
-    ...buildDrawingsGrid(group.items, { showPrices, startIndex }),
+      buildDrawingsHeader(group.rodzaj),
+      ...buildDrawingsGrid(group.items, {
+        showPrices,
+        startIndex,
+        ...drawingScale,
+      }),
+    ],
+  })
+
+  sectionParts.push(
     buildRodzajAreaSummary(group.items, group.rodzaj),
-    buildRodzajSummaryTable(group.items),
-  ]
+    buildRodzajSummaryTable(group.items)
+  )
+
+  return sectionParts
 }
 
 function buildTotalAreaBlock(totalAreaM2) {
@@ -550,11 +689,12 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
       : buildOfferTableBody(group.items, quote, globalLp)
 
     rodzajContent.push(
-      ...buildRodzajSection(group, table, {
+      ...buildRodzajSection(group, table, quote, clientRightColumn, {
         isSpec,
         showPrices: !isSpec,
         startIndex: globalLp - 1,
         isFirstGroup: groupIndex === 0,
+        showUnknownWarning: !isSpec && !quote.found && groupIndex === 0,
       })
     )
 
@@ -579,39 +719,6 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
       footer: { fontSize: 8, color: '#888', italics: true },
     },
     content: [
-      { text: 'Cennik Binglass', style: 'title' },
-      {
-        text: isSpec ? 'Specyfikacja wymiarowa' : 'Oferta / zapytanie ofertowe',
-        style: 'subtitle',
-      },
-      { text: `Data wygenerowania: ${formatDate()}`, fontSize: 9, color: '#888', margin: [0, 8, 0, 0] },
-
-      { text: 'Dane klienta', style: 'sectionFirst' },
-      {
-        columns: [
-          {
-            width: '*',
-            stack: [
-              { text: [{ text: 'Firma: ', bold: true }, quote.companyName] },
-              { text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)], margin: [0, 4, 0, 0] },
-            ],
-          },
-          {
-            width: '*',
-            stack: clientRightColumn,
-          },
-        ],
-      },
-
-      !isSpec && !quote.found
-        ? {
-            text: 'Uwaga: klient nieznany w bazie — zastosowano rabat domyślny (jeśli ustawiony w arkuszu).',
-            fontSize: 9,
-            color: '#92400e',
-            margin: [0, 8, 0, 0],
-          }
-        : { text: '' },
-
       ...rodzajContent,
 
       buildTotalAreaBlock(totalAreaM2),
