@@ -6,7 +6,7 @@ import { formatNip } from './nipValidation'
 pdfMake.addVirtualFileSystem(pdfFonts)
 
 const PRICE_GREEN = '#047857'
-const SQUARE_ICON_SIZE = 11
+const SQUARE_ICON_SIZE = 22
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -119,29 +119,39 @@ function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
   }
 }
 
-/** Kolumna Ilość: kwadraty (Phosphor square) nad liczbą sztuk. */
-function buildIloscCellWithSquares(ilosc) {
+/** Osobny wiersz pod produktem: liczba sztuk nad poziomym rzędem ikon square. */
+function buildSquareRowUnderProduct(ilosc) {
   const count = Math.max(1, Number(ilosc ?? 1))
   return {
     stack: [
       {
-        stack: Array.from({ length: count }, () => ({
-          ...buildSquareIconCanvas(),
-          alignment: 'center',
-          margin: [0, 1, 0, 1],
-        })),
-        alignment: 'center',
-      },
-      {
         text: String(count),
         alignment: 'center',
-        fontSize: 9,
+        fontSize: 10,
         bold: true,
-        margin: [0, 2, 0, 0],
+        margin: [0, 4, 0, 6],
+      },
+      {
+        columns: [
+          { width: '*', text: '' },
+          {
+            width: 'auto',
+            columns: Array.from({ length: count }, () => ({
+              width: 'auto',
+              ...buildSquareIconCanvas(),
+            })),
+            columnGap: 6,
+          },
+          { width: '*', text: '' },
+        ],
       },
     ],
-    alignment: 'center',
+    margin: [0, 2, 0, 4],
   }
+}
+
+function emptyColSpanCells(colSpan, totalCols) {
+  return Array.from({ length: totalCols - colSpan }, () => ({}))
 }
 
 /** Rysunek szkła z wymiarami (prostokąt lub trapez przy FIX). */
@@ -280,34 +290,45 @@ function buildOfferTableBody(quote) {
 }
 
 function buildSpecTableBody(quote) {
+  const colCount = 8
   const tableHeader = [
     { text: 'Lp.', style: 'tableHeader' },
     { text: 'Rodzaj', style: 'tableHeader' },
     { text: 'Produkt', style: 'tableHeader' },
     { text: 'Dodatek', style: 'tableHeader' },
     { text: 'Wymiary', style: 'tableHeader' },
-    { text: 'Ilość', style: 'tableHeader', alignment: 'center' },
+    { text: 'Ilość', style: 'tableHeader', alignment: 'right' },
     { text: 'm²', style: 'tableHeader', alignment: 'right' },
     { text: 'Tryb', style: 'tableHeader' },
   ]
 
-  const tableBody = [
-    tableHeader,
-    ...quote.items.map((item, i) => [
+  const tableBody = [tableHeader]
+
+  quote.items.forEach((item, i) => {
+    tableBody.push([
       String(i + 1),
       item.rodzaj,
       item.produkt,
       item.dodatek,
       formatDimensions(item.width, item.height, item.shortSide),
-      buildIloscCellWithSquares(item.ilosc),
+      { text: String(item.ilosc ?? 1), alignment: 'right' },
       { text: formatAreaM2(item.area), alignment: 'right' },
       `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
-    ]),
-  ]
+    ])
+
+    tableBody.push([
+      {
+        colSpan: colCount,
+        stack: [buildSquareRowUnderProduct(item.ilosc)],
+        fillColor: '#f8fafc',
+      },
+      ...emptyColSpanCells(colCount, colCount),
+    ])
+  })
 
   return {
     tableBody,
-    widths: [22, 40, '*', 48, 62, 28, 28, 52],
+    widths: [22, 40, '*', 48, 62, 24, 28, 52],
   }
 }
 
