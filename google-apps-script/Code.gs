@@ -46,6 +46,7 @@ function doGet(e) {
         cenniki: getCenniki(),
         dodatki: getDodatki(),
         tryby: getTryby(),
+        klienci: getKlienci(),
       })
     }
 
@@ -58,7 +59,8 @@ function doGet(e) {
       if (!nip) {
         return jsonResponse({ error: 'Brak parametru nip' }, 400)
       }
-      return jsonResponse(getClientInfo(nip))
+      const includeHistory = String(e.parameter.history || '1') !== '0'
+      return jsonResponse(getClientInfo(nip, includeHistory))
     }
 
     return jsonResponse({ error: 'Nieznana akcja: ' + action }, 400)
@@ -212,7 +214,12 @@ function getOrderHistoryForNip(nip) {
   }
 }
 
-function getClientInfo(nip) {
+function getClientInfo(nip, includeHistory) {
+  const base = getClientBaseInfo(nip)
+  return includeHistory ? withOrderHistory(base) : base
+}
+
+function getClientBaseInfo(nip) {
   const sheet = getSheet(SHEET_NAMES.KLIENCI)
   const rows = sheet.getDataRange().getValues()
   const header = rows[0]
@@ -253,23 +260,23 @@ function getClientInfo(nip) {
   }
 
   if (clientMatch) {
-    return withOrderHistory({
+    return {
       nip: clientMatch.nip,
       nazwa: clientMatch.nazwa,
       procentRabatu:
         clientMatch.procentRabatu !== null ? clientMatch.procentRabatu : defaultRabat,
       cennik: DEFAULT_CENNIK,
       found: true,
-    })
+    }
   }
 
-  return withOrderHistory({
+  return {
     nip: nip,
     nazwa: 'Nieznany klient',
     procentRabatu: defaultRabat,
     cennik: DEFAULT_CENNIK,
     found: false,
-  })
+  }
 }
 
 /**
@@ -333,6 +340,23 @@ function parseProcentRabatu(value) {
 }
 
 // --- Cenniki ---
+
+function getKlienci() {
+  const sheet = getSheet(SHEET_NAMES.KLIENCI)
+  const rows = sheet.getDataRange().getValues()
+  if (rows.length < 2) return []
+
+  const header = rows[0]
+  const result = []
+  for (let i = 1; i < rows.length; i++) {
+    const row = {}
+    for (let j = 0; j < header.length; j++) {
+      row[String(header[j] || '').trim()] = rows[i][j]
+    }
+    result.push(row)
+  }
+  return result
+}
 
 function getCenniki() {
   const sheet = getSheet(SHEET_NAMES.CENNIKI)

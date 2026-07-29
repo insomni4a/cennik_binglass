@@ -16,7 +16,7 @@ import { validateEmail, validatePhone, formatPhone } from './utils/contactValida
 import { buildOrderPayload } from './utils/buildOrderPayload'
 import { calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc, needsShortSide, calcAreaPerPieceM2 } from './utils/dimensions'
 import { readCatalogCache, writeCatalogCache } from './utils/catalogCache'
-import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile } from './utils/clientLookup'
+import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile, resolveClientFromKlienciRows } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
 import { BINGLASS_LOGO_URL } from './constants'
 import './App.css'
@@ -67,6 +67,13 @@ function cloneLine(sourceLine) {
     cena: null,
     cenaPoRabacie: null,
   }
+}
+
+function catalogCol(row, ...names) {
+  for (const name of names) {
+    if (row[name] !== undefined && row[name] !== '') return row[name]
+  }
+  return ''
 }
 
 function PlusIcon() {
@@ -122,6 +129,7 @@ function App() {
   const [lookingUpClient, setLookingUpClient] = useState(false)
   const calculatingRef = useRef(false)
   const clientProfileRef = useRef(null)
+  const klienciRowsRef = useRef([])
 
   useEffect(() => {
     clientProfileRef.current = clientProfile
@@ -145,8 +153,11 @@ function App() {
     setDodatki(dodatkiData)
     setTryby(trybData)
     setApiStale(stale)
+    klienciRowsRef.current = catalog.klienci ?? []
     const defaultTryb = trybData[0]?.tryb ?? ''
-    setLines([createLine(data, dodatkiData, null, defaultTryb)])
+    setLines((prev) =>
+      prev.length === 0 ? [createLine(data, dodatkiData, null, defaultTryb)] : prev
+    )
   }
 
   const fetchCatalogData = () => {
@@ -210,8 +221,15 @@ function App() {
   }
 
   const refreshClientProfile = async (normalizedNip) => {
-    const client = await lookupClient(normalizedNip)
-    return enrichClientProfile(client)
+    const local = resolveClientFromKlienciRows(
+      klienciRowsRef.current,
+      normalizedNip,
+      catalogCol,
+      { cennik: DEFAULT_CENNIK }
+    )
+    if (local) return local
+
+    return lookupClient(normalizedNip, { includeHistory: true })
   }
 
   const handleReturningClientLookup = async () => {
@@ -351,7 +369,19 @@ function App() {
       return cached
     }
 
-    const client = enrichClientProfile(await lookupClient(normalizedNip))
+    const local = resolveClientFromKlienciRows(
+      klienciRowsRef.current,
+      normalizedNip,
+      catalogCol,
+      { cennik: DEFAULT_CENNIK }
+    )
+    if (local) {
+      clientProfileRef.current = local
+      setClientProfile(local)
+      return local
+    }
+
+    const client = await lookupClient(normalizedNip, { includeHistory: false })
     clientProfileRef.current = client
     setClientProfile(client)
     return client

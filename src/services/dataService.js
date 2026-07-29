@@ -45,7 +45,7 @@ export async function loadCatalog() {
   throw new Error('Brak źródła cennika (ustaw VITE_API_URL lub VITE_SHEET_ID).')
 }
 
-export async function lookupClient(nip) {
+export async function lookupClient(nip, options = {}) {
   if (USE_MOCK) {
     const { mockFetchClient } = await import('./mockService')
     return enrichClientProfile(await mockFetchClient(nip))
@@ -53,7 +53,7 @@ export async function lookupClient(nip) {
 
   if (import.meta.env.VITE_API_URL) {
     try {
-      return enrichClientProfile(await fetchClient(nip))
+      return enrichClientProfile(await fetchClient(nip, options))
     } catch (err) {
       if (USE_SHEET) {
         const { lookupClientFromSheet } = await import('./sheetService')

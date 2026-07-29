@@ -16,6 +16,7 @@ export function mockGetCatalog() {
     cenniki: mockData.cenniki,
     dodatki: mockData.dodatki,
     tryby: mockData.tryby,
+    klienci: mockData.klienci,
   })
 }
 

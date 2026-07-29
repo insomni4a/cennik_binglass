@@ -81,10 +81,11 @@ function col(row, ...names) {
 }
 
 export async function loadCatalogFromSheet() {
-  const [cennikiRows, dodatkiRows, trybyRows] = await Promise.all([
+  const [cennikiRows, dodatkiRows, trybyRows, klienciRows] = await Promise.all([
     fetchSheet('Cenniki'),
     fetchSheet('Dodatki').catch(() => []),
     fetchSheet('Tryby').catch(() => []),
+    fetchSheet('Klienci').catch(() => []),
   ])
 
   const cenniki = cennikiRows
@@ -118,7 +119,7 @@ export async function loadCatalogFromSheet() {
           }))
       : [{ tryb: 'Standard', procent: 0 }]
 
-  return { version: 2, cenniki, dodatki, tryby }
+  return { version: 2, cenniki, dodatki, tryby, klienci: klienciRows }
 }
 
 export async function lookupClientFromSheet(nip) {

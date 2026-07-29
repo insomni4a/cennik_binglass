@@ -1,4 +1,4 @@
-const CACHE_KEY = 'binglass_catalog_v1'
+const CACHE_KEY = 'binglass_catalog_v2'
 const TTL_MS = 15 * 60 * 1000
 
 export function readCatalogCache() {

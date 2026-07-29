@@ -128,3 +128,10 @@ export function applyRabatToTotal(subtotal, surcharge, procentRabatu) {
     totalPrice: grossTotal - discountAmount,
   }
 }
+
+export function resolveClientFromKlienciRows(klienciRows, nip, colFn, { cennik = 'PODSTAWOWY' } = {}) {
+  if (!klienciRows?.length) return null
+  const parsed = parseKlienciRows(klienciRows, colFn)
+  const client = resolveClientFromKlienci(nip, parsed)
+  return enrichClientProfile({ ...client, cennik })
+}

@@ -36,8 +36,10 @@ export function isStaleApiResponse(data) {
   return Number(data.version) !== EXPECTED_API_VERSION || data.clientRegisterOnOrder !== true
 }
 
-export async function fetchClient(nip) {
-  const response = await fetchWithTimeout(apiUrl({ action: 'client', nip }))
+export async function fetchClient(nip, { includeHistory = true, timeoutMs = 45000 } = {}) {
+  const params = { action: 'client', nip }
+  if (!includeHistory) params.history = '0'
+  const response = await fetchWithTimeout(apiUrl(params), {}, timeoutMs)
   if (!response.ok) {
     throw new Error('Błąd połączenia z serwerem (GET client)')
   }
@@ -57,6 +59,7 @@ export async function fetchCatalog() {
     cenniki: data.cenniki ?? [],
     dodatki: data.dodatki ?? [{ dodatek: 'Brak', cena: 0 }],
     tryby: data.tryby ?? [{ tryb: 'Standard', procent: 0 }],
+    klienci: data.klienci ?? [],
   }
 }
 

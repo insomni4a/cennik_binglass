@@ -38,7 +38,8 @@ export function normalizeCatalog(catalog) {
     catalog?.tryby?.length > 0
       ? catalog.tryby
       : [{ tryb: 'Standard', procent: 0 }]
-  return { cenniki, dodatki, tryby }
+  const klienci = catalog?.klienci ?? []
+  return { cenniki, dodatki, tryby, klienci }
 }
 
 export function getRodzaje(cenniki) {
