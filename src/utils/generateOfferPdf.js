@@ -152,24 +152,13 @@ function groupItemsByRodzaj(items) {
   return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
-function buildBrandedLogoBox() {
+function buildEmptyLogoBox() {
   const boxW = 128
   return {
     width: boxW,
     table: {
       widths: [boxW],
-      body: [
-        [
-          {
-            text: 'Cennik Binglass',
-            alignment: 'center',
-            bold: true,
-            fontSize: 10,
-            color: '#1a1a2e',
-            margin: [6, 10, 6, 10],
-          },
-        ],
-      ],
+      body: [[{ text: '', margin: [0, 14, 0, 14] }]],
     },
     layout: {
       hLineWidth: () => 1.2,
@@ -184,7 +173,7 @@ function buildBrandedLogoBox() {
   }
 }
 
-function buildClientDataBlock(quote, clientRightColumn, { showUnknownWarning = false } = {}) {
+function buildSpecClientDataBlock(quote, clientRightColumn) {
   return {
     stack: [
       { text: 'Dane klienta', style: 'sectionFirst' },
@@ -204,30 +193,19 @@ function buildClientDataBlock(quote, clientRightColumn, { showUnknownWarning = f
             width: '*',
             stack: clientRightColumn,
           },
-          buildBrandedLogoBox(),
+          buildEmptyLogoBox(),
         ],
         columnGap: 10,
       },
-      showUnknownWarning
-        ? {
-            text: 'Uwaga: klient nieznany w bazie — zastosowano rabat domyślny (jeśli ustawiony w arkuszu).',
-            fontSize: 9,
-            color: '#92400e',
-            margin: [0, 8, 0, 0],
-          }
-        : { text: '' },
     ],
     margin: [0, 0, 0, 4],
   }
 }
 
-function buildDocHeader(isSpec) {
+function buildSpecDocHeader() {
   return [
     { text: 'Cennik Binglass', style: 'title' },
-    {
-      text: isSpec ? 'Specyfikacja wymiarowa' : 'Oferta / zapytanie ofertowe',
-      style: 'subtitle',
-    },
+    { text: 'Specyfikacja wymiarowa', style: 'subtitle' },
     {
       text: `Data wygenerowania: ${formatDate()}`,
       fontSize: 9,
@@ -237,11 +215,23 @@ function buildDocHeader(isSpec) {
   ]
 }
 
-function buildPozycjeHeader(rodzaj, isSpec) {
-  const label = isSpec ? 'Pozycje — wymiary i formatek: ' : 'Pozycje oferty: '
+function buildOfferDocHeader() {
+  return [
+    { text: 'Cennik Binglass', style: 'title' },
+    { text: 'Oferta / zapytanie ofertowe', style: 'subtitle' },
+    {
+      text: `Data wygenerowania: ${formatDate()}`,
+      fontSize: 9,
+      color: '#888',
+      margin: [0, 8, 0, 0],
+    },
+  ]
+}
+
+function buildPozycjeHeader(rodzaj) {
   return {
     text: [
-      { text: label, fontSize: 11, bold: true, color: '#1e40af' },
+      { text: 'Pozycje — wymiary i formatek: ', fontSize: 11, bold: true, color: '#1e40af' },
       { text: rodzaj, fontSize: 22, bold: true, color: '#1e40af' },
     ],
     margin: [0, 6, 0, 8],
@@ -502,50 +492,61 @@ function buildRodzajSummaryTable(items) {
   }
 }
 
-function buildRodzajSection(
-  group,
-  table,
-  quote,
-  clientRightColumn,
-  { isSpec, showPrices, startIndex, isFirstGroup, showUnknownWarning }
-) {
+function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startIndex, isFirstGroup }) {
   const drawingScale = getDrawingScale(group.items.length)
   const sectionParts = []
 
   if (isFirstGroup) {
-    sectionParts.push(...buildDocHeader(isSpec))
+    sectionParts.push(...buildSpecDocHeader())
   } else {
     sectionParts.push({ text: '', pageBreak: 'before' })
   }
 
-  sectionParts.push({
-    unbreakable: true,
-    stack: [
-      buildClientDataBlock(quote, clientRightColumn, { showUnknownWarning }),
-      buildPozycjeHeader(group.rodzaj, isSpec),
-      {
-        table: {
-          headerRows: 1,
-          widths: table.widths,
-          body: table.tableBody,
-        },
-        layout: TABLE_LAYOUT,
-      },
-      buildDrawingsHeader(group.rodzaj),
-      ...buildDrawingsGrid(group.items, {
-        showPrices,
-        startIndex,
-        ...drawingScale,
-      }),
-    ],
-  })
-
   sectionParts.push(
+    buildSpecClientDataBlock(quote, clientRightColumn),
+    buildPozycjeHeader(group.rodzaj),
+    {
+      table: {
+        headerRows: 1,
+        widths: table.widths,
+        body: table.tableBody,
+      },
+      layout: TABLE_LAYOUT,
+    },
+    buildDrawingsHeader(group.rodzaj),
+    ...buildDrawingsGrid(group.items, {
+      showPrices: false,
+      startIndex,
+      ...drawingScale,
+    }),
     buildRodzajAreaSummary(group.items, group.rodzaj),
     buildRodzajSummaryTable(group.items)
   )
 
   return sectionParts
+}
+
+function buildOfferRodzajSection(group, table, { startIndex, isFirstGroup }) {
+  return [
+    {
+      text: `Pozycje oferty: ${group.rodzaj}`,
+      style: isFirstGroup ? 'sectionFirst' : 'section',
+      pageBreak: isFirstGroup ? undefined : 'before',
+    },
+    {
+      table: {
+        headerRows: 1,
+        widths: table.widths,
+        body: table.tableBody,
+      },
+      layout: TABLE_LAYOUT,
+    },
+    {
+      text: `Rysunki wymiarowe — ${group.rodzaj}`,
+      style: 'sectionSub',
+    },
+    ...buildDrawingsGrid(group.items, { showPrices: true, startIndex }),
+  ]
 }
 
 function buildTotalAreaBlock(totalAreaM2) {
@@ -631,111 +632,176 @@ const TABLE_LAYOUT = {
   paddingBottom: () => 5,
 }
 
-export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
-  const isSpec = variant === 'spec'
-  const hasRabat = !isSpec && Number(quote.procentRabatu) > 0
+const PDF_STYLES = {
+  title: { fontSize: 20, bold: true, color: '#1a1a2e' },
+  subtitle: { fontSize: 11, color: '#666', margin: [0, 4, 0, 0] },
+  section: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 16, 0, 8] },
+  sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
+  sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
+  tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
+  summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
+  priceGreen: { color: PRICE_GREEN, bold: true },
+  drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
+  total: { fontSize: 14, bold: true, color: '#166534' },
+  footer: { fontSize: 8, color: '#888', italics: true },
+}
+
+function buildSpecClientRightColumn(quote, totalAreaM2) {
+  return [
+    {
+      text: [
+        { text: 'Tryb realizacji: ', bold: true },
+        quote.tryb === 'Różne'
+          ? 'różny wg pozycji (patrz tabela)'
+          : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
+      ],
+    },
+    {
+      text: [
+        { text: 'Łącznie m²: ', bold: true },
+        `${formatAreaM2(totalAreaM2)} m²`,
+      ],
+      margin: [0, 4, 0, 0],
+    },
+  ]
+}
+
+function buildOfferClientRightColumn(quote, totalAreaM2) {
+  return [
+    {
+      text: [
+        { text: 'Rabat: ', bold: true },
+        quote.procentRabatu > 0 ? `${quote.procentRabatu}%` : 'brak',
+      ],
+    },
+    {
+      text: [
+        { text: 'Tryb realizacji: ', bold: true },
+        quote.tryb === 'Różne'
+          ? 'różny wg pozycji (patrz tabela)'
+          : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
+      ],
+      margin: [0, 4, 0, 0],
+    },
+    {
+      text: [
+        { text: 'Łącznie m²: ', bold: true },
+        `${formatAreaM2(totalAreaM2)} m²`,
+      ],
+      margin: [0, 4, 0, 0],
+    },
+  ]
+}
+
+function buildSpecDocDefinition(quote) {
   const totalAreaM2 = sumItemsAreaM2(quote.items)
   const rodzajGroups = groupItemsByRodzaj(quote.items)
-
-  const clientRightColumn = isSpec
-    ? [
-        {
-          text: [
-            { text: 'Tryb realizacji: ', bold: true },
-            quote.tryb === 'Różne'
-              ? 'różny wg pozycji (patrz tabela)'
-              : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
-          ],
-        },
-        {
-          text: [
-            { text: 'Łącznie m²: ', bold: true },
-            `${formatAreaM2(totalAreaM2)} m²`,
-          ],
-          margin: [0, 4, 0, 0],
-        },
-      ]
-    : [
-        {
-          text: [
-            { text: 'Rabat: ', bold: true },
-            quote.procentRabatu > 0 ? `${quote.procentRabatu}%` : 'brak',
-          ],
-        },
-        {
-          text: [
-            { text: 'Tryb realizacji: ', bold: true },
-            quote.tryb === 'Różne'
-              ? 'różny wg pozycji (patrz tabela)'
-              : `${quote.tryb}${quote.procent > 0 ? ` (+${quote.procent}%)` : ''}`,
-          ],
-          margin: [0, 4, 0, 0],
-        },
-        {
-          text: [
-            { text: 'Łącznie m²: ', bold: true },
-            `${formatAreaM2(totalAreaM2)} m²`,
-          ],
-          margin: [0, 4, 0, 0],
-        },
-      ]
-
-  const rodzajContent = []
+  const clientRightColumn = buildSpecClientRightColumn(quote, totalAreaM2)
+  const content = []
   let globalLp = 1
 
   rodzajGroups.forEach((group, groupIndex) => {
-    const table = isSpec
-      ? buildSpecTableBody(group.items, globalLp)
-      : buildOfferTableBody(group.items, quote, globalLp)
-
-    rodzajContent.push(
-      ...buildRodzajSection(group, table, quote, clientRightColumn, {
-        isSpec,
-        showPrices: !isSpec,
+    const table = buildSpecTableBody(group.items, globalLp)
+    content.push(
+      ...buildSpecRodzajSection(group, table, quote, clientRightColumn, {
         startIndex: globalLp - 1,
         isFirstGroup: groupIndex === 0,
-        showUnknownWarning: !isSpec && !quote.found && groupIndex === 0,
       })
     )
-
     globalLp += group.items.length
   })
 
-  const docDefinition = {
+  content.push(
+    buildTotalAreaBlock(totalAreaM2),
+    {
+      text: 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.',
+      style: 'footer',
+      margin: [0, 24, 0, 0],
+    }
+  )
+
+  return {
     pageSize: 'A4',
     pageMargins: [40, 50, 40, 50],
     defaultStyle: { font: 'Roboto', fontSize: 10 },
-    styles: {
-      title: { fontSize: 20, bold: true, color: '#1a1a2e' },
-      subtitle: { fontSize: 11, color: '#666', margin: [0, 4, 0, 0] },
-      section: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 16, 0, 8] },
-      sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
-      sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
-      tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
-      summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
-      priceGreen: { color: PRICE_GREEN, bold: true },
-      drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
-      total: { fontSize: 14, bold: true, color: '#166534' },
-      footer: { fontSize: 8, color: '#888', italics: true },
+    styles: PDF_STYLES,
+    content,
+  }
+}
+
+function buildOfferOnlyDocDefinition(quote) {
+  const hasRabat = Number(quote.procentRabatu) > 0
+  const totalAreaM2 = sumItemsAreaM2(quote.items)
+  const rodzajGroups = groupItemsByRodzaj(quote.items)
+  const clientRightColumn = buildOfferClientRightColumn(quote, totalAreaM2)
+  const content = [
+    ...buildOfferDocHeader(),
+    { text: 'Dane klienta', style: 'sectionFirst' },
+    {
+      columns: [
+        {
+          width: '*',
+          stack: [
+            { text: [{ text: 'Firma: ', bold: true }, quote.companyName] },
+            {
+              text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
+              margin: [0, 4, 0, 0],
+            },
+          ],
+        },
+        {
+          width: '*',
+          stack: clientRightColumn,
+        },
+      ],
     },
-    content: [
-      ...rodzajContent,
+  ]
 
-      buildTotalAreaBlock(totalAreaM2),
-
-      ...(isSpec ? [] : [buildPriceSummary(quote, hasRabat)]),
-
-      {
-        text: isSpec
-          ? 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.'
-          : 'Oferta ma charakter informacyjny. Ostateczna cena może ulec zmianie po weryfikacji zamówienia.',
-        style: 'footer',
-        margin: [0, 24, 0, 0],
-      },
-    ],
+  if (!quote.found) {
+    content.push({
+      text: 'Uwaga: klient nieznany w bazie — zastosowano rabat domyślny (jeśli ustawiony w arkuszu).',
+      fontSize: 9,
+      color: '#92400e',
+      margin: [0, 8, 0, 0],
+    })
   }
 
-  return docDefinition
+  let globalLp = 1
+  rodzajGroups.forEach((group, groupIndex) => {
+    const table = buildOfferTableBody(group.items, quote, globalLp)
+    content.push(
+      ...buildOfferRodzajSection(group, table, {
+        startIndex: globalLp - 1,
+        isFirstGroup: groupIndex === 0,
+      })
+    )
+    globalLp += group.items.length
+  })
+
+  content.push(
+    buildTotalAreaBlock(totalAreaM2),
+    buildPriceSummary(quote, hasRabat),
+    {
+      text: 'Oferta ma charakter informacyjny. Ostateczna cena może ulec zmianie po weryfikacji zamówienia.',
+      style: 'footer',
+      margin: [0, 24, 0, 0],
+    }
+  )
+
+  return {
+    pageSize: 'A4',
+    pageMargins: [40, 50, 40, 50],
+    defaultStyle: { font: 'Roboto', fontSize: 10 },
+    styles: PDF_STYLES,
+    content,
+  }
+}
+
+export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
+  if (variant === 'spec') {
+    return buildSpecDocDefinition(quote)
+  }
+  return buildOfferOnlyDocDefinition(quote)
 }
 
 export async function getOfferPdfBase64(quote) {
