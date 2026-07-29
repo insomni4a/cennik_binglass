@@ -330,6 +330,85 @@ function buildSpecTableBody(items, startLp = 1) {
   }
 }
 
+function buildRodzajAreaSummary(items, rodzaj) {
+  const totalM2 = sumItemsAreaM2(items)
+  return {
+    columns: [
+      { width: '*', text: '' },
+      {
+        width: 'auto',
+        text: [
+          { text: `Łącznie m² (${rodzaj}): `, bold: true },
+          { text: `${formatAreaM2(totalM2)} m²`, bold: true, color: '#1e40af' },
+        ],
+        margin: [0, 6, 0, 4],
+        fontSize: 10,
+      },
+    ],
+  }
+}
+
+const SUMMARY_TABLE_FONT = 5
+
+function buildRodzajSummaryTable(items) {
+  const tableHeader = [
+    { text: 'Dodatek', style: 'summaryTableHeader' },
+    { text: 'Wymiar', style: 'summaryTableHeader' },
+    { text: 'Ilość', style: 'summaryTableHeader', alignment: 'right' },
+    { text: 'm²', style: 'summaryTableHeader', alignment: 'right' },
+  ]
+
+  const tableBody = [
+    tableHeader,
+    ...items.map((item) => [
+      { text: item.dodatek, fontSize: SUMMARY_TABLE_FONT },
+      {
+        text: formatDimensions(item.width, item.height, item.shortSide),
+        fontSize: SUMMARY_TABLE_FONT,
+      },
+      { text: String(item.ilosc ?? 1), fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+      { text: formatAreaM2(item.area), fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+    ]),
+  ]
+
+  return {
+    table: {
+      headerRows: 1,
+      widths: ['*', '*', 36, 44],
+      body: tableBody,
+    },
+    layout: TABLE_LAYOUT,
+    margin: [0, 0, 0, 12],
+  }
+}
+
+function buildRodzajSection(group, table, { isSpec, showPrices, startIndex, isFirstGroup }) {
+  return [
+    {
+      text: isSpec
+        ? `Pozycje — wymiary i formatek: ${group.rodzaj}`
+        : `Pozycje oferty: ${group.rodzaj}`,
+      style: isFirstGroup ? 'sectionFirst' : 'section',
+      pageBreak: isFirstGroup ? undefined : 'before',
+    },
+    {
+      table: {
+        headerRows: 1,
+        widths: table.widths,
+        body: table.tableBody,
+      },
+      layout: TABLE_LAYOUT,
+    },
+    {
+      text: `Rysunki wymiarowe — ${group.rodzaj}`,
+      style: 'sectionSub',
+    },
+    ...buildDrawingsGrid(group.items, { showPrices, startIndex }),
+    buildRodzajAreaSummary(group.items, group.rodzaj),
+    buildRodzajSummaryTable(group.items),
+  ]
+}
+
 function buildTotalAreaBlock(totalAreaM2) {
   return {
     columns: [
@@ -465,35 +544,17 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
   const rodzajContent = []
   let globalLp = 1
 
-  rodzajGroups.forEach((group) => {
+  rodzajGroups.forEach((group, groupIndex) => {
     const table = isSpec
       ? buildSpecTableBody(group.items, globalLp)
       : buildOfferTableBody(group.items, quote, globalLp)
 
     rodzajContent.push(
-      {
-        text: isSpec
-          ? `Pozycje — wymiary i formatek: ${group.rodzaj}`
-          : `Pozycje oferty: ${group.rodzaj}`,
-        style: 'section',
-        pageBreak: 'before',
-      },
-      {
-        table: {
-          headerRows: 1,
-          widths: table.widths,
-          body: table.tableBody,
-        },
-        layout: TABLE_LAYOUT,
-      },
-      {
-        text: `Rysunki wymiarowe — ${group.rodzaj}`,
-        style: 'section',
-        pageBreak: 'before',
-      },
-      ...buildDrawingsGrid(group.items, {
+      ...buildRodzajSection(group, table, {
+        isSpec,
         showPrices: !isSpec,
         startIndex: globalLp - 1,
+        isFirstGroup: groupIndex === 0,
       })
     )
 
@@ -508,7 +569,10 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
       title: { fontSize: 20, bold: true, color: '#1a1a2e' },
       subtitle: { fontSize: 11, color: '#666', margin: [0, 4, 0, 0] },
       section: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 16, 0, 8] },
+      sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
+      sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
       tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
+      summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
       priceGreen: { color: PRICE_GREEN, bold: true },
       drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
       total: { fontSize: 14, bold: true, color: '#166534' },
@@ -522,7 +586,7 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
       },
       { text: `Data wygenerowania: ${formatDate()}`, fontSize: 9, color: '#888', margin: [0, 8, 0, 0] },
 
-      { text: 'Dane klienta', style: 'section' },
+      { text: 'Dane klienta', style: 'sectionFirst' },
       {
         columns: [
           {
