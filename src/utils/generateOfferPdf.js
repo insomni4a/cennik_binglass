@@ -6,7 +6,7 @@ import { formatNip } from './nipValidation'
 pdfMake.addVirtualFileSystem(pdfFonts)
 
 const PRICE_GREEN = '#047857'
-const SPEC_TABLE_ROW_HEIGHT = 22
+const SQUARE_ICON_SIZE = 11
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -99,29 +99,48 @@ function buildShapeCanvas(item, maxDrawW, maxDrawH) {
   }
 }
 
-function buildPieceStackUnderRow(item, rowHeight = SPEC_TABLE_ROW_HEIGHT) {
-  const ilosc = Math.max(1, Number(item.ilosc ?? 1))
-  const drawH = Math.max(rowHeight - 4, 14)
-
+function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
+  const pad = 1
   return {
-    stack: Array.from({ length: ilosc }, (_, pieceIndex) => ({
-      columns: [
-        {
-          width: 28,
-          text: `${pieceIndex + 1}/${ilosc}`,
-          fontSize: 7,
-          color: '#6b7280',
-          margin: [0, drawH / 2 - 4, 0, 0],
-        },
-        {
-          width: '*',
-          ...buildShapeCanvas(item, 110, drawH),
-          alignment: 'left',
-        },
-      ],
-      columnGap: 6,
-      margin: [0, 2, 0, 2],
-    })),
+    canvas: [
+      {
+        type: 'rect',
+        x: pad,
+        y: pad,
+        w: size - pad * 2,
+        h: size - pad * 2,
+        r: 0,
+        lineWidth: 1.2,
+        lineColor: '#2563eb',
+      },
+    ],
+    width: size,
+    height: size,
+  }
+}
+
+/** Kolumna Ilość: kwadraty (Phosphor square) nad liczbą sztuk. */
+function buildIloscCellWithSquares(ilosc) {
+  const count = Math.max(1, Number(ilosc ?? 1))
+  return {
+    stack: [
+      {
+        stack: Array.from({ length: count }, () => ({
+          ...buildSquareIconCanvas(),
+          alignment: 'center',
+          margin: [0, 1, 0, 1],
+        })),
+        alignment: 'center',
+      },
+      {
+        text: String(count),
+        alignment: 'center',
+        fontSize: 9,
+        bold: true,
+        margin: [0, 2, 0, 0],
+      },
+    ],
+    alignment: 'center',
   }
 }
 
@@ -212,10 +231,6 @@ function buildDrawingsGrid(items, { showPrices = true } = {}) {
   return rows
 }
 
-function emptyColSpanCells(colSpan, totalCols) {
-  return Array.from({ length: totalCols - colSpan }, () => ({}))
-}
-
 function buildOfferTableBody(quote) {
   const hasRabat = Number(quote.procentRabatu) > 0
   const tableHeader = [
@@ -265,45 +280,34 @@ function buildOfferTableBody(quote) {
 }
 
 function buildSpecTableBody(quote) {
-  const colCount = 8
   const tableHeader = [
     { text: 'Lp.', style: 'tableHeader' },
     { text: 'Rodzaj', style: 'tableHeader' },
     { text: 'Produkt', style: 'tableHeader' },
     { text: 'Dodatek', style: 'tableHeader' },
     { text: 'Wymiary', style: 'tableHeader' },
-    { text: 'Ilość', style: 'tableHeader', alignment: 'right' },
+    { text: 'Ilość', style: 'tableHeader', alignment: 'center' },
     { text: 'm²', style: 'tableHeader', alignment: 'right' },
     { text: 'Tryb', style: 'tableHeader' },
   ]
 
-  const tableBody = [tableHeader]
-
-  quote.items.forEach((item, i) => {
-    tableBody.push([
+  const tableBody = [
+    tableHeader,
+    ...quote.items.map((item, i) => [
       String(i + 1),
       item.rodzaj,
       item.produkt,
       item.dodatek,
       formatDimensions(item.width, item.height, item.shortSide),
-      { text: String(item.ilosc ?? 1), alignment: 'right' },
+      buildIloscCellWithSquares(item.ilosc),
       { text: formatAreaM2(item.area), alignment: 'right' },
       `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
-    ])
-
-    tableBody.push([
-      {
-        colSpan: colCount,
-        stack: [buildPieceStackUnderRow(item)],
-        fillColor: '#f8fafc',
-      },
-      ...emptyColSpanCells(colCount, colCount),
-    ])
-  })
+    ]),
+  ]
 
   return {
     tableBody,
-    widths: [22, 40, '*', 48, 62, 24, 28, 52],
+    widths: [22, 40, '*', 48, 62, 28, 28, 52],
   }
 }
 
