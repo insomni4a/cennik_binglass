@@ -52,6 +52,23 @@ function createLine(cenniki, dodatki, defaults, defaultTryb = '') {
   }
 }
 
+function cloneLine(sourceLine) {
+  if (!sourceLine) return null
+  return {
+    id: crypto.randomUUID(),
+    rodzaj: sourceLine.rodzaj,
+    produkt: sourceLine.produkt,
+    dodatek: sourceLine.dodatek,
+    width: sourceLine.width,
+    height: sourceLine.height,
+    shortSide: sourceLine.shortSide,
+    ilosc: sourceLine.ilosc,
+    tryb: sourceLine.tryb,
+    cena: null,
+    cenaPoRabacie: null,
+  }
+}
+
 function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -300,7 +317,12 @@ function App() {
       const index = prev.findIndex((line) => line.id === afterId)
       const sourceLine = prev[index]
       const next = [...prev]
-      next.splice(index + 1, 0, createLine(cenniki, dodatki, null, sourceLine?.tryb ?? tryby[0]?.tryb ?? ''))
+      next.splice(
+        index + 1,
+        0,
+        cloneLine(sourceLine) ??
+          createLine(cenniki, dodatki, null, tryby[0]?.tryb ?? '')
+      )
       return next
     })
     setQuote(null)
