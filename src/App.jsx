@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import {
   getRodzaje,
   getProduktyForRodzaj,
@@ -120,6 +120,12 @@ function App() {
   const [clientProfile, setClientProfile] = useState(null)
   const [orderThankYou, setOrderThankYou] = useState(false)
   const [lookingUpClient, setLookingUpClient] = useState(false)
+  const calculatingRef = useRef(false)
+  const clientProfileRef = useRef(null)
+
+  useEffect(() => {
+    clientProfileRef.current = clientProfile
+  }, [clientProfile])
 
   const nipValidation = nipTouched || nip.length > 0 ? validateNip(nip) : { valid: true }
   const companyNameValid = companyName.trim().length > 0
@@ -217,6 +223,7 @@ function App() {
     if (!nipResult.valid) {
       setError(nipResult.message)
       setClientProfile(null)
+      clientProfileRef.current = null
       return
     }
 
@@ -224,17 +231,21 @@ function App() {
     try {
       const profile = await refreshClientProfile(nipResult.normalized)
       setClientProfile(profile)
+      clientProfileRef.current = profile
 
       if (profile.found && profile.nazwa && profile.nazwa !== 'Nieznany klient') {
         setCompanyName(profile.nazwa)
         setCompanyNameTouched(false)
       } else {
+        const unknownProfile = { ...profile, found: false }
         setCompanyName('')
-        setClientProfile({ ...profile, found: false })
+        setClientProfile(unknownProfile)
+        clientProfileRef.current = unknownProfile
         setError('Nie znaleziono tego NIP w bazie stałych klientów. Wpisz nazwę firmy ręcznie.')
       }
     } catch (err) {
       setClientProfile(null)
+      clientProfileRef.current = null
       setError(err.message || 'Nie udało się sprawdzić NIP w bazie klientów.')
     } finally {
       setLookingUpClient(false)
@@ -280,6 +291,7 @@ function App() {
     setCompanyName('')
     setCompanyNameTouched(false)
     setClientProfile(null)
+    clientProfileRef.current = null
     setOrderThankYou(false)
     clearQuote()
   }
@@ -333,7 +345,21 @@ function App() {
     setQuote(null)
   }
 
+  const resolveClientForCalculate = async (normalizedNip) => {
+    const cached = clientProfileRef.current
+    if (cached?.nip === normalizedNip) {
+      return cached
+    }
+
+    const client = enrichClientProfile(await lookupClient(normalizedNip))
+    clientProfileRef.current = client
+    setClientProfile(client)
+    return client
+  }
+
   const handleCalculate = async () => {
+    if (calculatingRef.current) return
+
     setError('')
     setQuote(null)
     setOfferSuccess('')
@@ -390,9 +416,10 @@ function App() {
       parsedLines.push({ ...line, ilosc, areaPerPiece, areaNum })
     }
 
+    calculatingRef.current = true
     setLoading(true)
     try {
-      const client = enrichClientProfile(await lookupClient(nipResult.normalized))
+      const client = await resolveClientForCalculate(nipResult.normalized)
       const updatedLines = [...lines]
       const items = []
       let subtotal = 0
@@ -478,6 +505,7 @@ function App() {
     } catch (err) {
       setError(err.message || 'Błąd połączenia z serwerem. Spróbuj ponownie.')
     } finally {
+      calculatingRef.current = false
       setLoading(false)
     }
   }

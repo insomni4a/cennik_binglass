@@ -8,6 +8,21 @@ function apiUrl(params) {
   return `${API_URL}?${query}`
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Przekroczono czas oczekiwania na odpowiedź serwera. Spróbuj ponownie.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 async function handleResponse(response) {
   const data = await response.json()
   if (data.error) {
@@ -22,7 +37,7 @@ export function isStaleApiResponse(data) {
 }
 
 export async function fetchClient(nip) {
-  const response = await fetch(apiUrl({ action: 'client', nip }))
+  const response = await fetchWithTimeout(apiUrl({ action: 'client', nip }))
   if (!response.ok) {
     throw new Error('Błąd połączenia z serwerem (GET client)')
   }
