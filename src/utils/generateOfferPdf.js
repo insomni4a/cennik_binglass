@@ -132,7 +132,7 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const SPEC_TABLE_WIDTHS = [22, '*', 48, 62, 24, 28]
+const SPEC_TABLE_WIDTHS = [22, '*', '*', '*', '*', '*']
 
 function buildSquareRowLine(count, lineColor) {
   return {
@@ -582,8 +582,8 @@ function buildSpecTableBody(items, startLp = 1) {
     specTableTextCell('Produkt', { bold: true }),
     specTableTextCell('Dodatek', { bold: true }),
     specTableTextCell('Wymiary', { bold: true }),
-    specTableTextCell('Ilość', { bold: true, alignment: 'right' }),
-    specTableTextCell('m²', { bold: true, alignment: 'right' }),
+    specTableTextCell('Ilość', { bold: true }),
+    specTableTextCell('m²', { bold: true }),
   ]
 
   tableHeader.forEach((cell) => {
@@ -599,8 +599,8 @@ function buildSpecTableBody(items, startLp = 1) {
       specTableTextCell(item.produkt),
       specTableTextCell(item.dodatek),
       specTableTextCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
-      specTableTextCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
-      specTableTextCell(formatAreaM2(item.area), { alignment: 'right' }),
+      specTableTextCell(item.ilosc ?? 1, { bold: true }),
+      specTableTextCell(formatAreaM2(item.area)),
     ])
 
     tableBody.push([
