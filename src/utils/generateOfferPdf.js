@@ -388,6 +388,13 @@ function buildDrawingsHeader(rodzaj) {
   }
 }
 
+function buildRodzajDrawingsBlock(rodzaj, items, options = {}) {
+  return {
+    stack: [buildDrawingsHeader(rodzaj), ...buildDrawingsGrid(items, options)],
+    pageBreak: 'before',
+  }
+}
+
 function getDrawingScale(itemCount) {
   if (itemCount <= 2) return { maxDrawW: 130, maxDrawH: 72, marginBottom: 12 }
   if (itemCount <= 4) return { maxDrawW: 108, maxDrawH: 58, marginBottom: 10 }
@@ -664,8 +671,7 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
       },
       layout: SPEC_TABLE_LAYOUT,
     },
-    buildDrawingsHeader(group.rodzaj),
-    ...buildDrawingsGrid(group.items, {
+    buildRodzajDrawingsBlock(group.rodzaj, group.items, {
       showPrices: false,
       startIndex,
       ...drawingScale,
@@ -697,11 +703,10 @@ function buildOfferRodzajTableSection(group, table, { isFirstGroup }) {
 
 function buildOfferRodzajDrawingsSection(group, { startIndex }) {
   return [
-    {
-      text: `Rysunki wymiarowe — ${group.rodzaj}`,
-      style: 'sectionSub',
-    },
-    ...buildDrawingsGrid(group.items, { showPrices: true, startIndex }),
+    buildRodzajDrawingsBlock(group.rodzaj, group.items, {
+      showPrices: true,
+      startIndex,
+    }),
   ]
 }
 
