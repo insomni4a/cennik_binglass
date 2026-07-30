@@ -205,7 +205,6 @@ function buildBlackBorderField(rowHeight = getSquareRowHeight() * 2) {
   }
 }
 
-const CACHED_BLACK_BORDER_FIELD = buildBlackBorderField(getSquareRowHeight() * 2)
 const EMPTY_TABLE_CELL = Object.freeze({})
 const COLSPAN_PAD_7 = Object.freeze(Array.from({ length: 7 }, () => EMPTY_TABLE_CELL))
 
@@ -617,7 +616,7 @@ function buildSpecTableBody(items, startLp = 1) {
     tableBody.push([
       {
         colSpan: colCount,
-        stack: [CACHED_BLACK_BORDER_FIELD],
+        stack: [buildBlackBorderField(getSquareRowHeight() * 2)],
         fillColor: '#ffffff',
       },
       ...emptyColSpanCells(colCount, colCount),
