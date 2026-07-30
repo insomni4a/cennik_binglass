@@ -9,6 +9,10 @@ const PRICE_GREEN = '#047857'
 const SQUARE_ICON_SIZE = 22
 const CLIENT_NAME_FONT = 15
 const SPEC_ACCENT_RED = '#dc2626'
+const SPEC_SQUARE_COLOR = '#4b5563'
+const SPEC_TABLE_LINE = '#9ca3af'
+const SPEC_TABLE_HEADER_FILL = '#d1d5db'
+const SPEC_SQUARE_ROW_FILL = '#e5e7eb'
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -101,7 +105,7 @@ function buildShapeCanvas(item, maxDrawW, maxDrawH) {
   }
 }
 
-function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
+function buildSquareIconCanvas(size = SQUARE_ICON_SIZE, lineColor = '#2563eb') {
   const pad = 1
   return {
     canvas: [
@@ -113,7 +117,7 @@ function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
         h: size - pad * 2,
         r: 0,
         lineWidth: 1.2,
-        lineColor: '#2563eb',
+        lineColor,
       },
     ],
     width: size,
@@ -121,8 +125,12 @@ function buildSquareIconCanvas(size = SQUARE_ICON_SIZE) {
   }
 }
 
+function getSquareRowHeight() {
+  return SQUARE_ICON_SIZE + 8
+}
+
 /** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej. */
-function buildSquareRowUnderProduct(ilosc) {
+function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   const count = Math.max(1, Number(ilosc ?? 1))
   return {
     columns: [
@@ -130,13 +138,35 @@ function buildSquareRowUnderProduct(ilosc) {
         width: 'auto',
         columns: Array.from({ length: count }, () => ({
           width: 'auto',
-          ...buildSquareIconCanvas(),
+          ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
         })),
         columnGap: 6,
       },
       { width: '*', text: '' },
     ],
     margin: [0, 4, 0, 4],
+  }
+}
+
+function buildBlackBorderField(rowHeight = getSquareRowHeight()) {
+  return {
+    table: {
+      widths: ['*'],
+      heights: [rowHeight],
+      body: [[{ text: '', fillColor: '#ffffff' }]],
+    },
+    layout: {
+      hLineWidth: () => 1,
+      vLineWidth: () => 1,
+      hLineColor: () => '#000000',
+      vLineColor: () => '#000000',
+      fillColor: () => '#ffffff',
+      paddingLeft: () => 0,
+      paddingRight: () => 0,
+      paddingTop: () => 0,
+      paddingBottom: () => 0,
+    },
+    margin: [0, 0, 0, 0],
   }
 }
 
@@ -406,15 +436,16 @@ function buildOfferTableBody(items, quote, startLp = 1) {
 
 function buildSpecTableBody(items, startLp = 1) {
   const colCount = 8
+  const squareRowHeight = getSquareRowHeight()
   const tableHeader = [
-    { text: 'Lp.', style: 'tableHeader' },
-    { text: 'Rodzaj', style: 'tableHeader' },
-    { text: 'Produkt', style: 'tableHeader' },
-    { text: 'Dodatek', style: 'tableHeader' },
-    { text: 'Wymiary', style: 'tableHeader' },
-    { text: 'Ilość', style: 'tableHeader', alignment: 'right' },
-    { text: 'm²', style: 'tableHeader', alignment: 'right' },
-    { text: 'Tryb', style: 'tableHeader' },
+    { text: 'Lp.', style: 'specTableHeader' },
+    { text: 'Rodzaj', style: 'specTableHeader' },
+    { text: 'Produkt', style: 'specTableHeader' },
+    { text: 'Dodatek', style: 'specTableHeader' },
+    { text: 'Wymiary', style: 'specTableHeader' },
+    { text: 'Ilość', style: 'specTableHeader', alignment: 'right' },
+    { text: 'm²', style: 'specTableHeader', alignment: 'right' },
+    { text: 'Tryb', style: 'specTableHeader' },
   ]
 
   const tableBody = [tableHeader]
@@ -434,8 +465,19 @@ function buildSpecTableBody(items, startLp = 1) {
     tableBody.push([
       {
         colSpan: colCount,
-        stack: [buildSquareRowUnderProduct(item.ilosc)],
-        fillColor: '#f8fafc',
+        stack: [
+          buildSquareRowUnderProduct(item.ilosc, { lineColor: SPEC_SQUARE_COLOR }),
+        ],
+        fillColor: SPEC_SQUARE_ROW_FILL,
+      },
+      ...emptyColSpanCells(colCount, colCount),
+    ])
+
+    tableBody.push([
+      {
+        colSpan: colCount,
+        stack: [buildBlackBorderField(squareRowHeight)],
+        fillColor: '#ffffff',
       },
       ...emptyColSpanCells(colCount, colCount),
     ])
@@ -469,10 +511,10 @@ const SUMMARY_TABLE_FONT = 5
 
 function buildRodzajSummaryTable(items) {
   const tableHeader = [
-    { text: 'Dodatek', style: 'summaryTableHeader' },
-    { text: 'Wymiar', style: 'summaryTableHeader' },
-    { text: 'Ilość', style: 'summaryTableHeader', alignment: 'right' },
-    { text: 'm²', style: 'summaryTableHeader', alignment: 'right' },
+    { text: 'Dodatek', style: 'specSummaryTableHeader' },
+    { text: 'Wymiar', style: 'specSummaryTableHeader' },
+    { text: 'Ilość', style: 'specSummaryTableHeader', alignment: 'right' },
+    { text: 'm²', style: 'specSummaryTableHeader', alignment: 'right' },
   ]
 
   const tableBody = [
@@ -494,7 +536,7 @@ function buildRodzajSummaryTable(items) {
       widths: ['*', '*', 36, 44],
       body: tableBody,
     },
-    layout: TABLE_LAYOUT,
+    layout: SPEC_TABLE_LAYOUT,
     margin: [0, 0, 0, 12],
   }
 }
@@ -518,7 +560,7 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
         widths: table.widths,
         body: table.tableBody,
       },
-      layout: TABLE_LAYOUT,
+      layout: SPEC_TABLE_LAYOUT,
     },
     buildDrawingsHeader(group.rodzaj),
     ...buildDrawingsGrid(group.items, {
@@ -647,6 +689,17 @@ const TABLE_LAYOUT = {
   paddingBottom: () => 5,
 }
 
+const SPEC_TABLE_LAYOUT = {
+  hLineWidth: () => 0.5,
+  vLineWidth: () => 0.5,
+  hLineColor: () => SPEC_TABLE_LINE,
+  vLineColor: () => SPEC_TABLE_LINE,
+  paddingLeft: () => 6,
+  paddingRight: () => 6,
+  paddingTop: () => 5,
+  paddingBottom: () => 5,
+}
+
 const PDF_STYLES = {
   title: { fontSize: 20, bold: true, color: '#1a1a2e' },
   subtitle: { fontSize: 11, color: '#666', margin: [0, 4, 0, 0] },
@@ -654,7 +707,14 @@ const PDF_STYLES = {
   sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
   sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
   tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
+  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9 },
   summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
+  specSummaryTableHeader: {
+    bold: true,
+    fillColor: SPEC_TABLE_HEADER_FILL,
+    color: '#1f2937',
+    fontSize: SUMMARY_TABLE_FONT,
+  },
   priceGreen: { color: PRICE_GREEN, bold: true },
   drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
   total: { fontSize: 14, bold: true, color: '#166534' },
