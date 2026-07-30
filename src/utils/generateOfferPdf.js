@@ -7,6 +7,7 @@ pdfMake.addVirtualFileSystem(pdfFonts)
 
 const PRICE_GREEN = '#047857'
 const SQUARE_ICON_SIZE = 22
+const CLIENT_NAME_FONT = 15
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -182,7 +183,12 @@ function buildSpecClientDataBlock(quote, clientRightColumn) {
           {
             width: '*',
             stack: [
-              { text: [{ text: 'Firma: ', bold: true }, quote.companyName] },
+              {
+                text: [
+                  { text: 'Firma: ', bold: true },
+                  { text: quote.companyName, fontSize: CLIENT_NAME_FONT },
+                ],
+              },
               {
                 text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
                 margin: [0, 4, 0, 0],
