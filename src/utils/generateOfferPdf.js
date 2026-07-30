@@ -130,6 +130,9 @@ function getSquareRowHeight() {
 }
 
 const SQUARES_PER_ROW = 18
+const SQUARE_GAP = 6
+const SQUARE_ROW_GAP = 6
+const SPEC_PAGE_CONTENT_WIDTH = 515
 
 function buildSquareRowLine(count, lineColor) {
   return {
@@ -140,7 +143,7 @@ function buildSquareRowLine(count, lineColor) {
           width: 'auto',
           ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
         })),
-        columnGap: 10,
+        columnGap: SQUARE_GAP,
       },
       { width: '*', text: '' },
     ],
@@ -150,10 +153,15 @@ function buildSquareRowLine(count, lineColor) {
 /** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej (max 18 w rzędzie). */
 function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   const total = Math.max(1, Number(ilosc ?? 1))
+  const rowCount = Math.ceil(total / SQUARES_PER_ROW)
   const rows = []
 
-  for (let offset = 0; offset < total; offset += SQUARES_PER_ROW) {
-    rows.push(buildSquareRowLine(Math.min(SQUARES_PER_ROW, total - offset), lineColor))
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const offset = rowIndex * SQUARES_PER_ROW
+    rows.push({
+      ...buildSquareRowLine(Math.min(SQUARES_PER_ROW, total - offset), lineColor),
+      margin: [0, 0, 0, rowIndex < rowCount - 1 ? SQUARE_ROW_GAP : 0],
+    })
   }
 
   return {
@@ -557,27 +565,78 @@ function buildOfferTableBody(items, quote, startLp = 1) {
   }
 }
 
+function measureSpecColumnWidth(label, values) {
+  const charW = 4.9
+  const cellPadding = 14
+  const maxLen = Math.max(label.length, ...values.map((value) => String(value ?? '').length))
+  return Math.ceil(maxLen * charW + cellPadding)
+}
+
+function buildSpecTableWidths(items) {
+  const produktW = measureSpecColumnWidth('Produkt', items.map((item) => item.produkt))
+  const dodatekW = measureSpecColumnWidth('Dodatek', items.map((item) => item.dodatek))
+  const wymiaryW = measureSpecColumnWidth(
+    'Wymiary',
+    items.map((item) => formatDimensions(item.width, item.height, item.shortSide))
+  )
+  const lpW = 24
+  const iloscW = 30
+  const m2W = 34
+  const flexibleTotal = produktW + dodatekW + wymiaryW
+  const fixedTotal = lpW + iloscW + m2W
+  const availableFlex = SPEC_PAGE_CONTENT_WIDTH - fixedTotal
+
+  if (flexibleTotal <= availableFlex) {
+    return [lpW, produktW, dodatekW, wymiaryW, iloscW, m2W]
+  }
+
+  const scale = availableFlex / flexibleTotal
+  return [
+    lpW,
+    Math.ceil(produktW * scale),
+    Math.ceil(dodatekW * scale),
+    Math.ceil(wymiaryW * scale),
+    iloscW,
+    m2W,
+  ]
+}
+
+function specTableTextCell(text, { bold = false, alignment = 'left' } = {}) {
+  return {
+    text: String(text ?? ''),
+    style: 'specTableCell',
+    bold,
+    alignment,
+    noWrap: true,
+  }
+}
+
 function buildSpecTableBody(items, startLp = 1) {
   const colCount = 6
   const tableHeader = [
-    { text: 'Lp.', style: 'specTableHeader' },
-    { text: 'Produkt', style: 'specTableHeader' },
-    { text: 'Dodatek', style: 'specTableHeader' },
-    { text: 'Wymiary', style: 'specTableHeader' },
-    { text: 'Ilość', style: 'specTableHeader', alignment: 'right' },
-    { text: 'm²', style: 'specTableHeader', alignment: 'right' },
+    specTableTextCell('Lp.', { bold: true }),
+    specTableTextCell('Produkt', { bold: true }),
+    specTableTextCell('Dodatek', { bold: true }),
+    specTableTextCell('Wymiary', { bold: true }),
+    specTableTextCell('Ilość', { bold: true, alignment: 'right' }),
+    specTableTextCell('m²', { bold: true, alignment: 'right' }),
   ]
+
+  tableHeader.forEach((cell) => {
+    cell.fillColor = SPEC_TABLE_HEADER_FILL
+    cell.color = '#1f2937'
+  })
 
   const tableBody = [tableHeader]
 
   items.forEach((item, i) => {
     tableBody.push([
-      String(startLp + i),
-      item.produkt,
-      item.dodatek,
-      { text: formatDimensions(item.width, item.height, item.shortSide), bold: true },
-      { text: String(item.ilosc ?? 1), alignment: 'right', bold: true },
-      { text: formatAreaM2(item.area), alignment: 'right' },
+      specTableTextCell(startLp + i),
+      specTableTextCell(item.produkt),
+      specTableTextCell(item.dodatek),
+      specTableTextCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
+      specTableTextCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
+      specTableTextCell(formatAreaM2(item.area), { alignment: 'right' }),
     ])
 
     tableBody.push([
@@ -603,7 +662,7 @@ function buildSpecTableBody(items, startLp = 1) {
 
   return {
     tableBody,
-    widths: [22, '*', 48, 62, 24, 28],
+    widths: buildSpecTableWidths(items),
   }
 }
 
@@ -823,7 +882,8 @@ const PDF_STYLES = {
   sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
   sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
   tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
-  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9 },
+  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9, noWrap: true },
+  specTableCell: { fontSize: 9, noWrap: true },
   summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
   specSummaryTableHeader: {
     bold: true,
