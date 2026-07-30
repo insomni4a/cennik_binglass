@@ -132,8 +132,8 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const SPEC_TABLE_WIDTHS = [22, '*', '*', '*', '*', '*']
-const SPEC_ORDER_COLUMN_GAP = 10
+const OFFER_POSITIONS_TABLE_WIDTHS = [22, 40, '*', 48, 62, 24, 28, 52, 52]
+const SPEC_POSITIONS_TABLE_WIDTHS = [22, '*', 48, 62, 24, 28]
 
 function buildSquareRowLine(count, lineColor) {
   return {
@@ -561,8 +561,8 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     hasRabat,
     tableBody,
     widths: hasRabat
-      ? [22, 40, '*', 48, 62, 24, 28, 52, 52, 52]
-      : [22, 40, '*', 48, 62, 24, 28, 52, 52],
+      ? [...OFFER_POSITIONS_TABLE_WIDTHS, 52]
+      : OFFER_POSITIONS_TABLE_WIDTHS,
   }
 }
 
@@ -572,7 +572,6 @@ function specTableTextCell(text, { bold = false, alignment = 'left' } = {}) {
     style: 'specTableCell',
     bold,
     alignment,
-    noWrap: true,
   }
 }
 
@@ -627,7 +626,7 @@ function buildSpecTableBody(items, startLp = 1) {
 
   return {
     tableBody,
-    widths: SPEC_TABLE_WIDTHS,
+    widths: SPEC_POSITIONS_TABLE_WIDTHS,
   }
 }
 
@@ -641,7 +640,7 @@ function buildSpecPositionsTableBlock(rodzaj, table) {
           widths: table.widths,
           body: table.tableBody,
         },
-        layout: SPEC_TABLE_LAYOUT,
+        layout: TABLE_LAYOUT,
       },
     ],
   }
@@ -855,8 +854,8 @@ const PDF_STYLES = {
   sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
   sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
   tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
-  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 8, noWrap: true },
-  specTableCell: { fontSize: 8, noWrap: true },
+  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9 },
+  specTableCell: { fontSize: 9 },
   summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
   specSummaryTableHeader: {
     bold: true,
