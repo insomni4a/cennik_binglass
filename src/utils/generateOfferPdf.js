@@ -132,7 +132,7 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const SPEC_PAGE_CONTENT_WIDTH = 515
+const SPEC_TABLE_WIDTHS = [22, '*', 48, 62, 24, 28]
 
 function buildSquareRowLine(count, lineColor) {
   return {
@@ -565,42 +565,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
   }
 }
 
-function measureSpecColumnWidth(label, values) {
-  const charW = 4.9
-  const cellPadding = 14
-  const maxLen = Math.max(label.length, ...values.map((value) => String(value ?? '').length))
-  return Math.ceil(maxLen * charW + cellPadding)
-}
-
-function buildSpecTableWidths(items) {
-  const produktW = measureSpecColumnWidth('Produkt', items.map((item) => item.produkt))
-  const dodatekW = measureSpecColumnWidth('Dodatek', items.map((item) => item.dodatek))
-  const wymiaryW = measureSpecColumnWidth(
-    'Wymiary',
-    items.map((item) => formatDimensions(item.width, item.height, item.shortSide))
-  )
-  const lpW = 24
-  const iloscW = 30
-  const m2W = 34
-  const flexibleTotal = produktW + dodatekW + wymiaryW
-  const fixedTotal = lpW + iloscW + m2W
-  const availableFlex = SPEC_PAGE_CONTENT_WIDTH - fixedTotal
-
-  if (flexibleTotal <= availableFlex) {
-    return [lpW, produktW, dodatekW, wymiaryW, iloscW, m2W]
-  }
-
-  const scale = availableFlex / flexibleTotal
-  return [
-    lpW,
-    Math.ceil(produktW * scale),
-    Math.ceil(dodatekW * scale),
-    Math.ceil(wymiaryW * scale),
-    iloscW,
-    m2W,
-  ]
-}
-
 function specTableTextCell(text, { bold = false, alignment = 'left' } = {}) {
   return {
     text: String(text ?? ''),
@@ -662,7 +626,7 @@ function buildSpecTableBody(items, startLp = 1) {
 
   return {
     tableBody,
-    widths: buildSpecTableWidths(items),
+    widths: SPEC_TABLE_WIDTHS,
   }
 }
 
