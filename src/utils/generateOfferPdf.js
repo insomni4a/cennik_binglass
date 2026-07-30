@@ -8,6 +8,7 @@ pdfMake.addVirtualFileSystem(pdfFonts)
 const PRICE_GREEN = '#047857'
 const SQUARE_ICON_SIZE = 22
 const CLIENT_NAME_FONT = 15
+const SPEC_ACCENT_RED = '#dc2626'
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -186,7 +187,7 @@ function buildSpecClientDataBlock(quote, clientRightColumn) {
               {
                 text: [
                   { text: 'Firma: ', bold: true },
-                  { text: quote.companyName, fontSize: CLIENT_NAME_FONT },
+                  { text: quote.companyName, fontSize: CLIENT_NAME_FONT, color: SPEC_ACCENT_RED },
                 ],
               },
               {
@@ -238,7 +239,7 @@ function buildPozycjeHeader(rodzaj) {
   return {
     text: [
       { text: 'Pozycje — wymiary i formatek: ', fontSize: 11, bold: true, color: '#1e40af' },
-      { text: rodzaj, fontSize: 22, bold: true, color: '#1e40af' },
+      { text: rodzaj, fontSize: 22, bold: true, color: SPEC_ACCENT_RED },
     ],
     margin: [0, 6, 0, 8],
   }
