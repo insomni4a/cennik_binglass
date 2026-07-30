@@ -526,7 +526,7 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
   return sectionParts
 }
 
-function buildOfferRodzajSection(group, table, { startIndex, isFirstGroup }) {
+function buildOfferRodzajTableSection(group, table, { isFirstGroup }) {
   return [
     {
       text: `Pozycje oferty: ${group.rodzaj}`,
@@ -541,6 +541,11 @@ function buildOfferRodzajSection(group, table, { startIndex, isFirstGroup }) {
       },
       layout: TABLE_LAYOUT,
     },
+  ]
+}
+
+function buildOfferRodzajDrawingsSection(group, { startIndex }) {
+  return [
     {
       text: `Rysunki wymiarowe — ${group.rodzaj}`,
       style: 'sectionSub',
@@ -770,17 +775,26 @@ function buildOfferOnlyDocDefinition(quote) {
   rodzajGroups.forEach((group, groupIndex) => {
     const table = buildOfferTableBody(group.items, quote, globalLp)
     content.push(
-      ...buildOfferRodzajSection(group, table, {
-        startIndex: globalLp - 1,
+      ...buildOfferRodzajTableSection(group, table, {
         isFirstGroup: groupIndex === 0,
       })
     )
     globalLp += group.items.length
   })
 
+  content.push(buildTotalAreaBlock(totalAreaM2), buildPriceSummary(quote, hasRabat))
+
+  globalLp = 1
+  rodzajGroups.forEach((group) => {
+    content.push(
+      ...buildOfferRodzajDrawingsSection(group, {
+        startIndex: globalLp - 1,
+      })
+    )
+    globalLp += group.items.length
+  })
+
   content.push(
-    buildTotalAreaBlock(totalAreaM2),
-    buildPriceSummary(quote, hasRabat),
     {
       text: 'Oferta ma charakter informacyjny. Ostateczna cena może ulec zmianie po weryfikacji zamówienia.',
       style: 'footer',
