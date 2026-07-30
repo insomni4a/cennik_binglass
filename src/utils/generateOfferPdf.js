@@ -572,57 +572,80 @@ function buildTotalAreaBlock(totalAreaM2) {
   }
 }
 
-function buildPriceSummary(quote, hasRabat) {
+const SUMMARY_LAYOUT = {
+  hLineWidth: () => 0,
+  vLineWidth: () => 0,
+  paddingLeft: () => 6,
+  paddingRight: () => 6,
+  paddingTop: () => 4,
+  paddingBottom: () => 4,
+}
+
+function offerSummaryWidths(hasRabat) {
+  return hasRabat
+    ? [22, 40, '*', 48, 62, 24, 28, 52, 52, 52]
+    : [22, 40, '*', 48, 62, 24, 28, 52, 52]
+}
+
+function buildOfferSummaryRow(label, value, colCount, { fontSize = 10, bold = false, color } = {}) {
+  const style = { fontSize, bold, ...(color ? { color } : {}) }
+  return [
+    { text: label, colSpan: colCount - 1, alignment: 'right', ...style },
+    ...emptyColSpanCells(colCount - 1, colCount),
+    { text: value, alignment: 'right', ...style },
+  ]
+}
+
+function buildOfferSummarySection(quote, hasRabat) {
+  const widths = offerSummaryWidths(hasRabat)
+  const colCount = widths.length
+  const totalAreaM2 = sumItemsAreaM2(quote.items)
+  const totalColor = hasRabat ? PRICE_GREEN : '#166534'
+
+  const body = [
+    buildOfferSummaryRow(
+      'Łączna powierzchnia:',
+      `${formatAreaM2(totalAreaM2)} m²`,
+      colCount,
+      { bold: true, color: '#1e40af' }
+    ),
+    buildOfferSummaryRow('Suma pozycji:', formatMoney(quote.subtotal), colCount, {
+      fontSize: 10,
+    }),
+  ]
+
+  if (quote.surcharge > 0) {
+    body.push(
+      buildOfferSummaryRow(
+        'Narzut trybu (łącznie):',
+        `+${formatMoney(quote.surcharge)}`,
+        colCount
+      )
+    )
+  }
+
+  if (quote.discountAmount > 0) {
+    body.push(
+      buildOfferSummaryRow(
+        `Rabat (${quote.procentRabatu}%):`,
+        `-${formatMoney(quote.discountAmount)}`,
+        colCount
+      )
+    )
+  }
+
+  body.push(
+    buildOfferSummaryRow('RAZEM:', formatMoney(quote.totalPrice), colCount, {
+      fontSize: 20,
+      bold: true,
+      color: totalColor,
+    })
+  )
+
   return {
-    columns: [
-      { width: '*', text: '' },
-      {
-        width: 220,
-        stack: [
-          {
-            columns: [
-              { text: 'Suma pozycji:', width: '*' },
-              { text: formatMoney(quote.subtotal), alignment: 'right', width: 80 },
-            ],
-            margin: [0, 12, 0, 4],
-          },
-          quote.surcharge > 0
-            ? {
-                columns: [
-                  { text: 'Narzut trybu (łącznie):', width: '*' },
-                  { text: `+${formatMoney(quote.surcharge)}`, alignment: 'right', width: 80 },
-                ],
-                margin: [0, 0, 0, 4],
-              }
-            : { text: '' },
-          quote.discountAmount > 0
-            ? {
-                columns: [
-                  { text: `Rabat (${quote.procentRabatu}%):`, width: '*' },
-                  {
-                    text: `-${formatMoney(quote.discountAmount)}`,
-                    alignment: 'right',
-                    width: 80,
-                  },
-                ],
-                margin: [0, 0, 0, 4],
-              }
-            : { text: '' },
-          {
-            columns: [
-              { text: 'RAZEM:', bold: true, width: '*' },
-              {
-                text: formatMoney(quote.totalPrice),
-                alignment: 'right',
-                width: 80,
-                style: hasRabat ? 'priceGreen' : 'total',
-              },
-            ],
-            margin: [0, 4, 0, 0],
-          },
-        ],
-      },
-    ],
+    table: { widths, body },
+    layout: SUMMARY_LAYOUT,
+    margin: [0, 8, 0, 0],
   }
 }
 
@@ -782,7 +805,7 @@ function buildOfferOnlyDocDefinition(quote) {
     globalLp += group.items.length
   })
 
-  content.push(buildTotalAreaBlock(totalAreaM2), buildPriceSummary(quote, hasRabat))
+  content.push(buildOfferSummarySection(quote, hasRabat))
 
   globalLp = 1
   rodzajGroups.forEach((group) => {
