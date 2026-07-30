@@ -133,7 +133,6 @@ const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
 const SPEC_TABLE_WIDTHS = [22, '*', '*', '*', '*', '*']
-const SPEC_PAGE_CONTENT_WIDTH = 515
 const SPEC_ORDER_COLUMN_GAP = 10
 
 function buildSquareRowLine(count, lineColor) {
@@ -634,7 +633,6 @@ function buildSpecTableBody(items, startLp = 1) {
 
 function buildSpecPositionsTableBlock(rodzaj, table) {
   return {
-    width: SPEC_PAGE_CONTENT_WIDTH,
     stack: [
       buildPozycjeHeader(rodzaj),
       {
@@ -844,10 +842,10 @@ const SPEC_TABLE_LAYOUT = {
   vLineWidth: () => 0.5,
   hLineColor: () => SPEC_TABLE_LINE,
   vLineColor: () => SPEC_TABLE_LINE,
-  paddingLeft: () => 6,
-  paddingRight: () => 6,
-  paddingTop: () => 5,
-  paddingBottom: () => 5,
+  paddingLeft: () => 4,
+  paddingRight: () => 4,
+  paddingTop: () => 4,
+  paddingBottom: () => 4,
 }
 
 const PDF_STYLES = {
@@ -857,8 +855,8 @@ const PDF_STYLES = {
   sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
   sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
   tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
-  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9, noWrap: true },
-  specTableCell: { fontSize: 9, noWrap: true },
+  specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 8, noWrap: true },
+  specTableCell: { fontSize: 8, noWrap: true },
   summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
   specSummaryTableHeader: {
     bold: true,
