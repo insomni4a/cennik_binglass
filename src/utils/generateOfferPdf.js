@@ -140,7 +140,7 @@ function buildSquareRowLine(count, lineColor) {
           width: 'auto',
           ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
         })),
-        columnGap: 6,
+        columnGap: 10,
       },
       { width: '*', text: '' },
     ],
@@ -558,16 +558,14 @@ function buildOfferTableBody(items, quote, startLp = 1) {
 }
 
 function buildSpecTableBody(items, startLp = 1) {
-  const colCount = 8
+  const colCount = 6
   const tableHeader = [
     { text: 'Lp.', style: 'specTableHeader' },
-    { text: 'Rodzaj', style: 'specTableHeader' },
     { text: 'Produkt', style: 'specTableHeader' },
     { text: 'Dodatek', style: 'specTableHeader' },
     { text: 'Wymiary', style: 'specTableHeader' },
     { text: 'Ilość', style: 'specTableHeader', alignment: 'right' },
     { text: 'm²', style: 'specTableHeader', alignment: 'right' },
-    { text: 'Tryb', style: 'specTableHeader' },
   ]
 
   const tableBody = [tableHeader]
@@ -575,13 +573,11 @@ function buildSpecTableBody(items, startLp = 1) {
   items.forEach((item, i) => {
     tableBody.push([
       String(startLp + i),
-      item.rodzaj,
       item.produkt,
       item.dodatek,
       { text: formatDimensions(item.width, item.height, item.shortSide), bold: true },
       { text: String(item.ilosc ?? 1), alignment: 'right', bold: true },
       { text: formatAreaM2(item.area), alignment: 'right' },
-      `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
     ])
 
     tableBody.push([
@@ -607,7 +603,7 @@ function buildSpecTableBody(items, startLp = 1) {
 
   return {
     tableBody,
-    widths: [22, 40, '*', 48, 62, 24, 28, 52],
+    widths: [22, '*', 48, 62, 24, 28],
   }
 }
 
