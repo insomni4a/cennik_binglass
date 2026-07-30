@@ -648,6 +648,8 @@ function buildSpecPositionsTableBlock(rodzaj, table) {
     ],
   }
 }
+
+function buildRodzajAreaSummary(items, rodzaj) {
   const totalM2 = sumItemsAreaM2(items)
   return {
     columns: [
