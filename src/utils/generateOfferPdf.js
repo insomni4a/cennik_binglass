@@ -129,10 +129,9 @@ function getSquareRowHeight() {
   return SQUARE_ICON_SIZE + 8
 }
 
-/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej. */
-function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
-  const count = Math.max(1, Number(ilosc ?? 1))
+const SQUARES_PER_ROW = 18
 
+function buildSquareRowLine(count, lineColor) {
   return {
     columns: [
       {
@@ -145,6 +144,20 @@ function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
       },
       { width: '*', text: '' },
     ],
+  }
+}
+
+/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej (max 18 w rzędzie). */
+function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
+  const total = Math.max(1, Number(ilosc ?? 1))
+  const rows = []
+
+  for (let offset = 0; offset < total; offset += SQUARES_PER_ROW) {
+    rows.push(buildSquareRowLine(Math.min(SQUARES_PER_ROW, total - offset), lineColor))
+  }
+
+  return {
+    stack: rows,
     margin: [0, 4, 0, 4],
   }
 }
