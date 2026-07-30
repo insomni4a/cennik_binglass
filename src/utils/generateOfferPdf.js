@@ -610,23 +610,17 @@ function buildPriceSummary(quote, hasRabat) {
               }
             : { text: '' },
           {
-            columns: [
-              {
-                text: 'RAZEM:',
-                bold: true,
-                width: '*',
-                fontSize: 20,
-                color: totalColor,
-              },
+            text: [
+              { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
               {
                 text: formatMoney(quote.totalPrice),
-                alignment: 'right',
-                width: 80,
-                fontSize: 20,
                 bold: true,
+                fontSize: 20,
                 color: totalColor,
               },
             ],
+            alignment: 'right',
+            noWrap: true,
             margin: [0, 4, 0, 0],
           },
         ],
