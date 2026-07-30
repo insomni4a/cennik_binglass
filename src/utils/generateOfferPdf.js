@@ -132,19 +132,14 @@ function getSquareRowHeight() {
 /** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej. */
 function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   const count = Math.max(1, Number(ilosc ?? 1))
-  const square =
-    lineColor === SPEC_SQUARE_COLOR
-      ? CACHED_SPEC_SQUARE
-      : buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor)
 
   return {
     columns: [
       {
         width: 'auto',
         columns: Array.from({ length: count }, () => ({
-          canvas: square.canvas,
-          width: square.width,
-          height: square.height,
+          width: 'auto',
+          ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
         })),
         columnGap: 6,
       },
@@ -188,7 +183,6 @@ function buildBlackBorderField(rowHeight = getSquareRowHeight() * 2) {
   }
 }
 
-const CACHED_SPEC_SQUARE = buildSquareIconCanvas(SQUARE_ICON_SIZE, SPEC_SQUARE_COLOR)
 const CACHED_BLACK_BORDER_FIELD = buildBlackBorderField(getSquareRowHeight() * 2)
 const EMPTY_TABLE_CELL = Object.freeze({})
 const COLSPAN_PAD_7 = Object.freeze(Array.from({ length: 7 }, () => EMPTY_TABLE_CELL))
@@ -209,6 +203,22 @@ function groupItemsByRodzaj(items) {
   return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
+const SPEC_ORDER_BOX_WIDTH = 158
+const SPEC_ORDER_FIELD_HEIGHT = getSquareRowHeight() * 2
+const SPEC_ORDER_BORDER_COLOR = '#2563eb'
+
+const ORDER_BORDER_FIELD_LAYOUT = {
+  hLineWidth: () => 1.2,
+  vLineWidth: () => 1.2,
+  hLineColor: () => SPEC_ORDER_BORDER_COLOR,
+  vLineColor: () => SPEC_ORDER_BORDER_COLOR,
+  fillColor: () => '#ffffff',
+  paddingLeft: () => 2,
+  paddingRight: () => 2,
+  paddingTop: () => 2,
+  paddingBottom: () => 2,
+}
+
 function buildEmptyLogoBox(boxW = 128) {
   return {
     width: boxW,
@@ -216,32 +226,8 @@ function buildEmptyLogoBox(boxW = 128) {
       widths: [boxW],
       body: [[{ text: '', margin: [0, 14, 0, 14] }]],
     },
-    layout: {
-      hLineWidth: () => 1.2,
-      vLineWidth: () => 1.2,
-      hLineColor: () => '#2563eb',
-      vLineColor: () => '#2563eb',
-      paddingLeft: () => 2,
-      paddingRight: () => 2,
-      paddingTop: () => 2,
-      paddingBottom: () => 2,
-    },
+    layout: ORDER_BORDER_FIELD_LAYOUT,
   }
-}
-
-const SPEC_ORDER_BOX_WIDTH = 158
-const SPEC_ORDER_FIELD_HEIGHT = getSquareRowHeight() * 2
-
-const BORDER_FIELD_LAYOUT = {
-  hLineWidth: () => 1,
-  vLineWidth: () => 1,
-  hLineColor: () => '#000000',
-  vLineColor: () => '#000000',
-  fillColor: () => '#ffffff',
-  paddingLeft: () => 0,
-  paddingRight: () => 0,
-  paddingTop: () => 0,
-  paddingBottom: () => 0,
 }
 
 function buildLabeledBorderField(label, boxW = SPEC_ORDER_BOX_WIDTH, rowHeight = SPEC_ORDER_FIELD_HEIGHT) {
@@ -264,59 +250,94 @@ function buildLabeledBorderField(label, boxW = SPEC_ORDER_BOX_WIDTH, rowHeight =
         ],
       ],
     },
-    layout: BORDER_FIELD_LAYOUT,
+    layout: ORDER_BORDER_FIELD_LAYOUT,
     margin: [0, 0, 0, 0],
   }
+}
+
+function buildSpecOrderInfoStack() {
+  return [
+    buildLabeledBorderField('Termin zam.'),
+    {
+      text: 'Numer zam.',
+      fontSize: DRAWING_DESC_FONT,
+      bold: true,
+      color: '#374151',
+      alignment: 'left',
+      margin: [0, 6, 0, 4],
+    },
+    buildEmptyLogoBox(SPEC_ORDER_BOX_WIDTH),
+  ]
 }
 
 function buildSpecOrderInfoColumn() {
   return {
     width: SPEC_ORDER_BOX_WIDTH,
-    stack: [
-      buildLabeledBorderField('Termin zam.'),
-      {
-        text: 'Numer zam.',
-        fontSize: DRAWING_DESC_FONT,
-        bold: true,
-        color: '#374151',
-        alignment: 'left',
-        margin: [0, 6, 0, 4],
-      },
-      buildEmptyLogoBox(SPEC_ORDER_BOX_WIDTH),
-    ],
+    stack: buildSpecOrderInfoStack(),
   }
 }
 
-function buildSpecClientDataBlock(quote, clientRightColumn) {
+function buildSpecClientInfoColumns(quote, clientRightColumn, { includeOrderColumn = true } = {}) {
+  const columns = [
+    {
+      width: '*',
+      stack: [
+        {
+          text: [
+            { text: 'Firma: ', bold: true },
+            { text: quote.companyName, fontSize: CLIENT_NAME_FONT, color: SPEC_ACCENT_RED },
+          ],
+        },
+        {
+          text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
+          margin: [0, 4, 0, 0],
+        },
+      ],
+    },
+    {
+      width: '*',
+      stack: clientRightColumn,
+    },
+  ]
+
+  if (includeOrderColumn) {
+    columns.push(buildSpecOrderInfoColumn())
+  }
+
+  return { columns, columnGap: 10 }
+}
+
+function buildSpecClientDataBlock(quote, clientRightColumn, { includeOrderColumn = true } = {}) {
   return {
     stack: [
       { text: 'Dane klienta', style: 'sectionFirst' },
+      buildSpecClientInfoColumns(quote, clientRightColumn, { includeOrderColumn }),
+    ],
+    margin: [0, 0, 0, 4],
+  }
+}
+
+function buildSpecFirstPageTopBlock(quote, clientRightColumn) {
+  return {
+    columns: [
       {
-        columns: [
+        width: '*',
+        stack: [
+          ...buildSpecDocHeader(),
           {
-            width: '*',
             stack: [
-              {
-                text: [
-                  { text: 'Firma: ', bold: true },
-                  { text: quote.companyName, fontSize: CLIENT_NAME_FONT, color: SPEC_ACCENT_RED },
-                ],
-              },
-              {
-                text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
-                margin: [0, 4, 0, 0],
-              },
+              { text: 'Dane klienta', style: 'sectionFirst' },
+              buildSpecClientInfoColumns(quote, clientRightColumn, { includeOrderColumn: false }),
             ],
           },
-          {
-            width: '*',
-            stack: clientRightColumn,
-          },
-          buildSpecOrderInfoColumn(),
         ],
-        columnGap: 10,
+      },
+      {
+        width: SPEC_ORDER_BOX_WIDTH,
+        stack: buildSpecOrderInfoStack(),
       },
     ],
+    columnGap: 10,
     margin: [0, 0, 0, 4],
   }
 }
@@ -627,13 +648,13 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
   const sectionParts = []
 
   if (isFirstGroup) {
-    sectionParts.push(...buildSpecDocHeader())
+    sectionParts.push(buildSpecFirstPageTopBlock(quote, clientRightColumn))
   } else {
     sectionParts.push({ text: '', pageBreak: 'before' })
+    sectionParts.push(buildSpecClientDataBlock(quote, clientRightColumn))
   }
 
   sectionParts.push(
-    buildSpecClientDataBlock(quote, clientRightColumn),
     buildPozycjeHeader(group.rodzaj),
     {
       table: {
