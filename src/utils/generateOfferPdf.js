@@ -133,6 +133,8 @@ const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
 const SPEC_TABLE_WIDTHS = [22, '*', '*', '*', '*', '*']
+const SPEC_PAGE_CONTENT_WIDTH = 515
+const SPEC_ORDER_COLUMN_GAP = 10
 
 function buildSquareRowLine(count, lineColor) {
   return {
@@ -630,7 +632,22 @@ function buildSpecTableBody(items, startLp = 1) {
   }
 }
 
-function buildRodzajAreaSummary(items, rodzaj) {
+function buildSpecPositionsTableBlock(rodzaj, table) {
+  return {
+    width: SPEC_PAGE_CONTENT_WIDTH,
+    stack: [
+      buildPozycjeHeader(rodzaj),
+      {
+        table: {
+          headerRows: 1,
+          widths: table.widths,
+          body: table.tableBody,
+        },
+        layout: SPEC_TABLE_LAYOUT,
+      },
+    ],
+  }
+}
   const totalM2 = sumItemsAreaM2(items)
   return {
     columns: [
@@ -694,15 +711,7 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
   }
 
   sectionParts.push(
-    buildPozycjeHeader(group.rodzaj),
-    {
-      table: {
-        headerRows: 1,
-        widths: table.widths,
-        body: table.tableBody,
-      },
-      layout: SPEC_TABLE_LAYOUT,
-    },
+    buildSpecPositionsTableBlock(group.rodzaj, table),
     buildRodzajDrawingsBlock(group.rodzaj, group.items, {
       showPrices: false,
       startIndex,
