@@ -9,10 +9,11 @@ const PRICE_GREEN = '#047857'
 const SQUARE_ICON_SIZE = 22
 const CLIENT_NAME_FONT = 15
 const SPEC_ACCENT_RED = '#dc2626'
-const SPEC_SQUARE_COLOR = '#4b5563'
-const SPEC_TABLE_LINE = '#9ca3af'
-const SPEC_TABLE_HEADER_FILL = '#d1d5db'
-const SPEC_SQUARE_ROW_FILL = '#e5e7eb'
+const SPEC_SQUARE_COLOR = '#9ca3af'
+const SPEC_TABLE_LINE = '#d1d5db'
+const SPEC_TABLE_HEADER_FILL = '#eef0f2'
+const SPEC_SQUARE_ROW_FILL = '#f3f4f6'
+const DRAWING_DESC_FONT = 9
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -148,12 +149,24 @@ function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   }
 }
 
-function buildBlackBorderField(rowHeight = getSquareRowHeight()) {
+function buildBlackBorderField(rowHeight = getSquareRowHeight() * 2) {
   return {
     table: {
       widths: ['*'],
       heights: [rowHeight],
-      body: [[{ text: '', fillColor: '#ffffff' }]],
+      body: [
+        [
+          {
+            text: 'UWAGI',
+            fontSize: DRAWING_DESC_FONT,
+            bold: true,
+            color: '#374151',
+            fillColor: '#ffffff',
+            margin: [4, 4, 4, 4],
+            alignment: 'left',
+          },
+        ],
+      ],
     },
     layout: {
       hLineWidth: () => 1,
@@ -476,7 +489,7 @@ function buildSpecTableBody(items, startLp = 1) {
     tableBody.push([
       {
         colSpan: colCount,
-        stack: [buildBlackBorderField(squareRowHeight)],
+        stack: [buildBlackBorderField(squareRowHeight * 2)],
         fillColor: '#ffffff',
       },
       ...emptyColSpanCells(colCount, colCount),
