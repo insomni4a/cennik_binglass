@@ -10,6 +10,9 @@ export default defineConfig({
           if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
             return 'react-vendor'
           }
+          if (id.includes('node_modules/pdfmake')) {
+            return 'pdfmake'
+          }
         },
       },
     },

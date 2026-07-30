@@ -18,7 +18,7 @@ import { calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc, needsSh
 import { readCatalogCache, writeCatalogCache } from './utils/catalogCache'
 import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile, resolveClientFromKlienciRows } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
-import { BINGLASS_LOGO_URL } from './constants'
+import { preloadPdfMake } from './utils/pdfMakeLoader'
 import './App.css'
 
 const ApiStaleWarning = lazy(() => import('./components/ApiStaleWarning.jsx'))
@@ -532,6 +532,8 @@ function App() {
         totalPrice,
         items: itemsWithRabat,
       })
+      void preloadPdfMake()
+      void import('./utils/generateOfferPdf')
     } catch (err) {
       setError(err.message || 'Błąd połączenia z serwerem. Spróbuj ponownie.')
     } finally {

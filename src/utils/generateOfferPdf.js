@@ -1,9 +1,8 @@
-import pdfMake from 'pdfmake/build/pdfmake'
-import pdfFonts from 'pdfmake/build/vfs_fonts'
 import { formatAreaM2, formatDimensions } from './dimensions'
 import { formatNip } from './nipValidation'
+import { getPdfMake, preloadPdfMake, yieldToMain } from './pdfMakeLoader'
 
-pdfMake.addVirtualFileSystem(pdfFonts)
+export { preloadPdfMake }
 
 const PRICE_GREEN = '#047857'
 const SQUARE_ICON_SIZE = 22
@@ -133,13 +132,19 @@ function getSquareRowHeight() {
 /** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej. */
 function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   const count = Math.max(1, Number(ilosc ?? 1))
+  const square =
+    lineColor === SPEC_SQUARE_COLOR
+      ? CACHED_SPEC_SQUARE
+      : buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor)
+
   return {
     columns: [
       {
         width: 'auto',
         columns: Array.from({ length: count }, () => ({
-          width: 'auto',
-          ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
+          canvas: square.canvas,
+          width: square.width,
+          height: square.height,
         })),
         columnGap: 6,
       },
@@ -183,8 +188,15 @@ function buildBlackBorderField(rowHeight = getSquareRowHeight() * 2) {
   }
 }
 
+const CACHED_SPEC_SQUARE = buildSquareIconCanvas(SQUARE_ICON_SIZE, SPEC_SQUARE_COLOR)
+const CACHED_BLACK_BORDER_FIELD = buildBlackBorderField(getSquareRowHeight() * 2)
+const EMPTY_TABLE_CELL = Object.freeze({})
+const COLSPAN_PAD_7 = Object.freeze(Array.from({ length: 7 }, () => EMPTY_TABLE_CELL))
+
 function emptyColSpanCells(colSpan, totalCols) {
-  return Array.from({ length: totalCols - colSpan }, () => ({}))
+  const pad = totalCols - colSpan
+  if (pad === 7) return COLSPAN_PAD_7
+  return Array.from({ length: pad }, () => EMPTY_TABLE_CELL)
 }
 
 function groupItemsByRodzaj(items) {
@@ -197,8 +209,7 @@ function groupItemsByRodzaj(items) {
   return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
-function buildEmptyLogoBox() {
-  const boxW = 128
+function buildEmptyLogoBox(boxW = 128) {
   return {
     width: boxW,
     table: {
@@ -215,6 +226,64 @@ function buildEmptyLogoBox() {
       paddingTop: () => 2,
       paddingBottom: () => 2,
     },
+  }
+}
+
+const SPEC_ORDER_BOX_WIDTH = 158
+const SPEC_ORDER_FIELD_HEIGHT = getSquareRowHeight() * 2
+
+const BORDER_FIELD_LAYOUT = {
+  hLineWidth: () => 1,
+  vLineWidth: () => 1,
+  hLineColor: () => '#000000',
+  vLineColor: () => '#000000',
+  fillColor: () => '#ffffff',
+  paddingLeft: () => 0,
+  paddingRight: () => 0,
+  paddingTop: () => 0,
+  paddingBottom: () => 0,
+}
+
+function buildLabeledBorderField(label, boxW = SPEC_ORDER_BOX_WIDTH, rowHeight = SPEC_ORDER_FIELD_HEIGHT) {
+  return {
+    width: boxW,
+    table: {
+      widths: [boxW],
+      heights: [rowHeight],
+      body: [
+        [
+          {
+            text: label,
+            fontSize: DRAWING_DESC_FONT,
+            bold: true,
+            color: '#374151',
+            fillColor: '#ffffff',
+            margin: [4, 4, 4, 4],
+            alignment: 'left',
+          },
+        ],
+      ],
+    },
+    layout: BORDER_FIELD_LAYOUT,
+    margin: [0, 0, 0, 0],
+  }
+}
+
+function buildSpecOrderInfoColumn() {
+  return {
+    width: SPEC_ORDER_BOX_WIDTH,
+    stack: [
+      buildLabeledBorderField('Termin zam.'),
+      {
+        text: 'Numer zam.',
+        fontSize: DRAWING_DESC_FONT,
+        bold: true,
+        color: '#374151',
+        alignment: 'left',
+        margin: [0, 6, 0, 4],
+      },
+      buildEmptyLogoBox(SPEC_ORDER_BOX_WIDTH),
+    ],
   }
 }
 
@@ -243,7 +312,7 @@ function buildSpecClientDataBlock(quote, clientRightColumn) {
             width: '*',
             stack: clientRightColumn,
           },
-          buildEmptyLogoBox(),
+          buildSpecOrderInfoColumn(),
         ],
         columnGap: 10,
       },
@@ -449,7 +518,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
 
 function buildSpecTableBody(items, startLp = 1) {
   const colCount = 8
-  const squareRowHeight = getSquareRowHeight()
   const tableHeader = [
     { text: 'Lp.', style: 'specTableHeader' },
     { text: 'Rodzaj', style: 'specTableHeader' },
@@ -489,7 +557,7 @@ function buildSpecTableBody(items, startLp = 1) {
     tableBody.push([
       {
         colSpan: colCount,
-        stack: [buildBlackBorderField(squareRowHeight * 2)],
+        stack: [CACHED_BLACK_BORDER_FIELD],
         fillColor: '#ffffff',
       },
       ...emptyColSpanCells(colCount, colCount),
@@ -731,7 +799,7 @@ const PDF_STYLES = {
   priceGreen: { color: PRICE_GREEN, bold: true },
   drawingTitle: { fontSize: 10, bold: true, color: '#1e40af' },
   total: { fontSize: 14, bold: true, color: '#166534' },
-  footer: { fontSize: 8, color: '#888', italics: true },
+  footer: { fontSize: 8, color: '#888' },
 }
 
 function buildSpecClientRightColumn(quote, totalAreaM2) {
@@ -907,16 +975,24 @@ export function buildOfferDocDefinition(quote, { variant = 'offer' } = {}) {
 }
 
 export async function getOfferPdfBase64(quote) {
+  const pdfMake = await getPdfMake()
+  await yieldToMain()
   const docDefinition = buildOfferDocDefinition(quote, { variant: 'offer' })
   return pdfMake.createPdf(docDefinition).getBase64()
 }
 
 export async function generateOfferPdf(quote, targetWindow = null) {
+  const pdfMake = await getPdfMake()
+  await yieldToMain()
   const docDefinition = buildOfferDocDefinition(quote, { variant: 'offer' })
+  await yieldToMain()
   await pdfMake.createPdf(docDefinition).open(targetWindow)
 }
 
 export async function generateSpecPdf(quote, targetWindow = null) {
+  const pdfMake = await getPdfMake()
+  await yieldToMain()
   const docDefinition = buildOfferDocDefinition(quote, { variant: 'spec' })
+  await yieldToMain()
   await pdfMake.createPdf(docDefinition).open(targetWindow)
 }
