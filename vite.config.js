@@ -13,6 +13,9 @@ export default defineConfig({
           if (id.includes('node_modules/pdfmake')) {
             return 'pdfmake'
           }
+          if (id.includes('/src/utils/pdfMakeLoader') || id.includes('/src/utils/generateOfferPdf')) {
+            return 'pdf-tools'
+          }
         },
       },
     },
