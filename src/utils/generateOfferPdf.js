@@ -151,6 +151,31 @@ function buildSquareRowLine(count, lineColor) {
   }
 }
 
+/** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
+function buildInlineSquares(ilosc, { lineColor = SPEC_SQUARE_COLOR } = {}) {
+  const total = Math.max(1, Number(ilosc ?? 1))
+  const rowCount = Math.ceil(total / SQUARES_PER_ROW)
+  const rows = []
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const offset = rowIndex * SQUARES_PER_ROW
+    const count = Math.min(SQUARES_PER_ROW, total - offset)
+    rows.push({
+      columns: Array.from({ length: count }, () => ({
+        width: 'auto',
+        ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
+      })),
+      columnGap: SQUARE_GAP,
+      margin: [0, 0, 0, rowIndex < rowCount - 1 ? SQUARE_ROW_GAP : 0],
+    })
+  }
+
+  return {
+    stack: rows,
+    margin: [2, 2, 0, 2],
+  }
+}
+
 /** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej (max 18 w rzędzie). */
 function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
   const total = Math.max(1, Number(ilosc ?? 1))
@@ -672,6 +697,60 @@ function buildRodzajAreaSummary(items, rodzaj) {
 }
 
 const SUMMARY_TABLE_FONT = 5
+const SPEC_FINAL_SUMMARY_FONT = 7
+
+function buildSpecSummaryHeaderCell(text, fontSize) {
+  return {
+    text,
+    bold: true,
+    fillColor: SPEC_TABLE_HEADER_FILL,
+    color: '#1f2937',
+    fontSize,
+    alignment: 'left',
+  }
+}
+
+function buildSpecSummaryDataCell(text, fontSize) {
+  return {
+    text: String(text ?? ''),
+    fontSize,
+    alignment: 'left',
+  }
+}
+
+function buildSpecSummaryTable(items, { fontSize, marginBottom = 12, withSquares = false } = {}) {
+  const tableBody = [
+    [
+      buildSpecSummaryHeaderCell('Dodatek', fontSize),
+      buildSpecSummaryHeaderCell('Wymiar', fontSize),
+      buildSpecSummaryHeaderCell('Ilość', fontSize),
+      buildSpecSummaryHeaderCell('m²', fontSize),
+      ...(withSquares ? [buildSpecSummaryHeaderCell('', fontSize)] : []),
+    ],
+    ...items.map((item) => {
+      const row = [
+        buildSpecSummaryDataCell(item.dodatek, fontSize),
+        buildSpecSummaryDataCell(formatDimensions(item.width, item.height, item.shortSide), fontSize),
+        buildSpecSummaryDataCell(`${item.ilosc ?? 1} szt`, fontSize),
+        buildSpecSummaryDataCell(`${formatAreaM2(item.area)} m2`, fontSize),
+      ]
+      if (withSquares) {
+        row.push(buildInlineSquares(item.ilosc))
+      }
+      return row
+    }),
+  ]
+
+  return {
+    table: {
+      headerRows: 1,
+      widths: withSquares ? ['auto', 'auto', 'auto', 'auto', '*'] : ['*', '*', 36, 44],
+      body: tableBody,
+    },
+    layout: SPEC_TABLE_LAYOUT,
+    margin: [0, 0, 0, marginBottom],
+  }
+}
 
 function buildRodzajSummaryTable(items) {
   const tableHeader = [
@@ -703,6 +782,14 @@ function buildRodzajSummaryTable(items) {
     layout: SPEC_TABLE_LAYOUT,
     margin: [0, 0, 0, 12],
   }
+}
+
+function buildSpecFinalSummaryTable(items) {
+  return buildSpecSummaryTable(items, {
+    fontSize: SPEC_FINAL_SUMMARY_FONT,
+    marginBottom: 0,
+    withSquares: true,
+  })
 }
 
 function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup, startLp }) {
@@ -965,6 +1052,7 @@ function buildSpecDocDefinition(quote) {
 
   content.push(
     buildTotalAreaBlock(totalAreaM2),
+    buildSpecFinalSummaryTable(quote.items),
     {
       text: 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.',
       style: 'footer',
