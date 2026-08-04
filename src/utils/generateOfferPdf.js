@@ -132,7 +132,7 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const OFFER_POSITIONS_TABLE_WIDTHS = [20, 44, 54, 44, 58, 22, 26, 48, 48]
+const OFFER_POSITIONS_TABLE_WIDTHS = [20, 44, 54, 44, 58, 11, 26, 48, 48]
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -794,14 +794,28 @@ function buildSpecProduktSection(group, quote, clientRightColumn, { startIndex, 
   return sectionParts
 }
 
+function getOfferTableTotalWidth(widths) {
+  return widths.reduce((sum, width) => sum + Number(width), 0)
+}
+
 function buildOfferTableElement(table, { marginTop = 0 } = {}) {
+  const tableWidth = getOfferTableTotalWidth(table.widths)
+
   return {
-    table: {
-      headerRows: 1,
-      widths: table.widths,
-      body: table.tableBody,
-    },
-    layout: TABLE_LAYOUT,
+    columns: [
+      { width: '*', text: '' },
+      {
+        width: tableWidth,
+        table: {
+          headerRows: 1,
+          widths: table.widths,
+          body: table.tableBody,
+        },
+        layout: TABLE_LAYOUT,
+      },
+      { width: '*', text: '' },
+    ],
+    columnGap: 0,
     margin: [0, marginTop, 0, 0],
   }
 }
