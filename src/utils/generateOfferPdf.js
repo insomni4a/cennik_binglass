@@ -132,7 +132,7 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const OFFER_POSITIONS_TABLE_WIDTHS = [22, 40, '*', 48, 62, 24, 28, 52, 52]
+const OFFER_POSITIONS_TABLE_WIDTHS = [20, 44, 54, 44, 58, 22, 26, 48, 48]
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -542,48 +542,51 @@ function buildDrawingsGrid(
   return rows
 }
 
+function offerTableCell(text, { bold = false, alignment = 'left', style } = {}) {
+  const cell = {
+    text: String(text ?? ''),
+    fontSize: OFFER_TABLE_FONT,
+    bold,
+    alignment,
+    noWrap: true,
+  }
+  if (style) cell.style = style
+  return cell
+}
+
 function buildOfferTableBody(items, quote, startLp = 1) {
   const hasRabat = Number(quote.procentRabatu) > 0
   const tableHeader = [
-    { text: 'Lp.', style: 'tableHeader' },
-    { text: 'Rodzaj', style: 'tableHeader' },
-    { text: 'Produkt', style: 'tableHeader' },
-    { text: 'Dodatek', style: 'tableHeader' },
-    { text: 'Wymiary', style: 'tableHeader' },
-    { text: 'Ilość', style: 'tableHeader', alignment: 'right' },
-    { text: 'm²', style: 'tableHeader', alignment: 'right' },
-    { text: 'Tryb', style: 'tableHeader' },
-    { text: 'Cena podst.', style: 'tableHeader', alignment: 'right' },
-    ...(hasRabat ? [{ text: 'Po rabacie', style: 'tableHeader', alignment: 'right' }] : []),
+    { text: 'Lp.', style: 'tableHeader', noWrap: true },
+    { text: 'Rodzaj', style: 'tableHeader', noWrap: true },
+    { text: 'Produkt', style: 'tableHeader', noWrap: true },
+    { text: 'Dodatek', style: 'tableHeader', noWrap: true },
+    { text: 'Wymiary', style: 'tableHeader', noWrap: true },
+    { text: 'Ilość', style: 'tableHeader', alignment: 'right', noWrap: true },
+    { text: 'm²', style: 'tableHeader', alignment: 'right', noWrap: true },
+    { text: 'Tryb', style: 'tableHeader', noWrap: true },
+    { text: 'Cena podst.', style: 'tableHeader', alignment: 'right', noWrap: true },
+    ...(hasRabat ? [{ text: 'Po rabacie', style: 'tableHeader', alignment: 'right', noWrap: true }] : []),
   ]
 
   const tableBody = [
     tableHeader,
     ...items.map((item, i) => [
-      { text: String(startLp + i), fontSize: OFFER_TABLE_FONT },
-      { text: item.rodzaj, fontSize: OFFER_TABLE_FONT },
-      { text: item.produkt, fontSize: OFFER_TABLE_FONT },
-      { text: item.dodatek, fontSize: OFFER_TABLE_FONT },
-      {
-        text: formatDimensions(item.width, item.height, item.shortSide),
-        bold: true,
-        fontSize: OFFER_TABLE_FONT,
-      },
-      { text: String(item.ilosc ?? 1), alignment: 'right', bold: true, fontSize: OFFER_TABLE_FONT },
-      { text: formatAreaM2(item.area), alignment: 'right', fontSize: OFFER_TABLE_FONT },
-      {
-        text: `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
-        fontSize: OFFER_TABLE_FONT,
-      },
-      { text: formatMoney(item.lineTotal), alignment: 'right', fontSize: OFFER_TABLE_FONT },
+      offerTableCell(startLp + i),
+      offerTableCell(item.rodzaj),
+      offerTableCell(item.produkt),
+      offerTableCell(item.dodatek),
+      offerTableCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
+      offerTableCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
+      offerTableCell(formatAreaM2(item.area), { alignment: 'right' }),
+      offerTableCell(`${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`),
+      offerTableCell(formatMoney(item.lineTotal), { alignment: 'right' }),
       ...(hasRabat
         ? [
-            {
-              text: formatMoney(item.lineTotalAfterRabat ?? item.lineTotal),
+            offerTableCell(formatMoney(item.lineTotalAfterRabat ?? item.lineTotal), {
               alignment: 'right',
               style: 'priceGreen',
-              fontSize: OFFER_TABLE_FONT,
-            },
+            }),
           ]
         : []),
     ]),
