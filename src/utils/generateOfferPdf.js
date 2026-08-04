@@ -152,21 +152,30 @@ function buildSquareRowLine(count, lineColor) {
 }
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
-function buildInlineSquares(ilosc, { lineColor = SPEC_SQUARE_COLOR } = {}) {
+function buildInlineSquares(
+  ilosc,
+  {
+    lineColor = SPEC_SQUARE_COLOR,
+    iconSize = SQUARE_ICON_SIZE,
+    gap = SQUARE_GAP,
+    rowGap = SQUARE_ROW_GAP,
+    squaresPerRow = SQUARES_PER_ROW,
+  } = {}
+) {
   const total = Math.max(1, Number(ilosc ?? 1))
-  const rowCount = Math.ceil(total / SQUARES_PER_ROW)
+  const rowCount = Math.ceil(total / squaresPerRow)
   const rows = []
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const offset = rowIndex * SQUARES_PER_ROW
-    const count = Math.min(SQUARES_PER_ROW, total - offset)
+    const offset = rowIndex * squaresPerRow
+    const count = Math.min(squaresPerRow, total - offset)
     rows.push({
       columns: Array.from({ length: count }, () => ({
         width: 'auto',
-        ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
+        ...buildSquareIconCanvas(iconSize, lineColor),
       })),
-      columnGap: SQUARE_GAP,
-      margin: [0, 0, 0, rowIndex < rowCount - 1 ? SQUARE_ROW_GAP : 0],
+      columnGap: gap,
+      margin: [0, 0, 0, rowIndex < rowCount - 1 ? rowGap : 0],
     })
   }
 
@@ -697,58 +706,88 @@ function buildRodzajAreaSummary(items, rodzaj) {
 }
 
 const SUMMARY_TABLE_FONT = 5
-const SPEC_FINAL_SUMMARY_FONT = 7
+const SPEC_FINAL_SUMMARY_FONT = 6
+const SPEC_FINAL_SUMMARY_SQUARE_SIZE = SQUARE_ICON_SIZE / 2
+const SPEC_FINAL_SUMMARY_SQUARE_GAP = 3
+const SPEC_FINAL_SUMMARY_COL_COUNT = 5
 
-function buildSpecSummaryHeaderCell(text, fontSize) {
-  return {
-    text,
-    bold: true,
-    fillColor: SPEC_TABLE_HEADER_FILL,
-    color: '#1f2937',
-    fontSize,
-    alignment: 'left',
-  }
-}
-
-function buildSpecSummaryDataCell(text, fontSize) {
+function buildSpecFinalSummaryCell(text, { bold = false } = {}) {
   return {
     text: String(text ?? ''),
-    fontSize,
-    alignment: 'left',
+    fontSize: SPEC_FINAL_SUMMARY_FONT,
+    bold,
+    alignment: 'center',
+    margin: [2, 6, 2, 6],
   }
 }
 
-function buildSpecSummaryTable(items, { fontSize, marginBottom = 12, withSquares = false } = {}) {
+function buildSpecFinalSummaryHeaderCell(text) {
+  return {
+    ...buildSpecFinalSummaryCell(text, { bold: true }),
+    fillColor: SPEC_TABLE_HEADER_FILL,
+    color: '#1f2937',
+  }
+}
+
+function buildSpecFinalSummaryUwagiRow(colCount) {
+  const rowHeight = (SPEC_FINAL_SUMMARY_SQUARE_SIZE + 8) * 2
+
+  return [
+    {
+      colSpan: colCount,
+      stack: [buildBlackBorderField(rowHeight)],
+      margin: [0, 0, 0, 0],
+    },
+    ...emptyColSpanCells(colCount, colCount),
+  ]
+}
+
+function buildSpecFinalSummaryTable(items) {
+  const colCount = SPEC_FINAL_SUMMARY_COL_COUNT
   const tableBody = [
     [
-      buildSpecSummaryHeaderCell('Dodatek', fontSize),
-      buildSpecSummaryHeaderCell('Wymiar', fontSize),
-      buildSpecSummaryHeaderCell('Ilość', fontSize),
-      buildSpecSummaryHeaderCell('m²', fontSize),
-      ...(withSquares ? [buildSpecSummaryHeaderCell('', fontSize)] : []),
+      buildSpecFinalSummaryHeaderCell('Dodatek'),
+      buildSpecFinalSummaryHeaderCell('Wymiar'),
+      buildSpecFinalSummaryHeaderCell('Ilość'),
+      buildSpecFinalSummaryHeaderCell('m²'),
+      buildSpecFinalSummaryHeaderCell(''),
     ],
-    ...items.map((item) => {
-      const row = [
-        buildSpecSummaryDataCell(item.dodatek, fontSize),
-        buildSpecSummaryDataCell(formatDimensions(item.width, item.height, item.shortSide), fontSize),
-        buildSpecSummaryDataCell(`${item.ilosc ?? 1} szt`, fontSize),
-        buildSpecSummaryDataCell(`${formatAreaM2(item.area)} m2`, fontSize),
-      ]
-      if (withSquares) {
-        row.push(buildInlineSquares(item.ilosc))
-      }
-      return row
-    }),
+    ...items.flatMap((item) => [
+      [
+        buildSpecFinalSummaryCell(item.dodatek),
+        buildSpecFinalSummaryCell(formatDimensions(item.width, item.height, item.shortSide)),
+        buildSpecFinalSummaryCell(`${item.ilosc ?? 1} szt`),
+        buildSpecFinalSummaryCell(`${formatAreaM2(item.area)} m2`),
+        {
+          columns: [
+            { width: '*', text: '' },
+            {
+              width: 'auto',
+              stack: [
+                buildInlineSquares(item.ilosc, {
+                  iconSize: SPEC_FINAL_SUMMARY_SQUARE_SIZE,
+                  gap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
+                  rowGap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
+                }),
+              ],
+            },
+            { width: '*', text: '' },
+          ],
+          margin: [2, 6, 2, 6],
+        },
+      ],
+      buildSpecFinalSummaryUwagiRow(colCount),
+    ]),
   ]
 
   return {
     table: {
       headerRows: 1,
-      widths: withSquares ? ['auto', 'auto', 'auto', 'auto', '*'] : ['*', '*', 36, 44],
+      widths: ['auto', 'auto', 'auto', 'auto', '*'],
       body: tableBody,
     },
     layout: SPEC_TABLE_LAYOUT,
-    margin: [0, 0, 0, marginBottom],
+    margin: [0, 0, 0, 0],
   }
 }
 
@@ -782,14 +821,6 @@ function buildRodzajSummaryTable(items) {
     layout: SPEC_TABLE_LAYOUT,
     margin: [0, 0, 0, 12],
   }
-}
-
-function buildSpecFinalSummaryTable(items) {
-  return buildSpecSummaryTable(items, {
-    fontSize: SPEC_FINAL_SUMMARY_FONT,
-    marginBottom: 0,
-    withSquares: true,
-  })
 }
 
 function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup, startLp }) {
