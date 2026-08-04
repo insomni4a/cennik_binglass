@@ -698,63 +698,29 @@ function buildSpecRodzajSummaryBlock(rodzaj, produkt, items) {
 }
 
 function buildRodzajSummaryTable(items, { pageBreak = false } = {}) {
-  const colCount = 4
-  const columnHeader = [
+  const tableHeader = [
     { text: 'Dodatek', style: 'specSummaryTableHeader' },
     { text: 'Wymiar', style: 'specSummaryTableHeader' },
     { text: 'Ilość', style: 'specSummaryTableHeader', alignment: 'right' },
     { text: 'm²', style: 'specSummaryTableHeader', alignment: 'right' },
   ]
 
-  const tableBody = []
-  const produktGroups = groupItemsByProdukt(items)
-  let lastRodzaj = null
-
-  produktGroups.forEach((group) => {
-    if (group.rodzaj !== lastRodzaj) {
-      if (lastRodzaj !== null) {
-        tableBody.push([
-          {
-            colSpan: colCount,
-            text: '',
-            margin: [0, 4, 0, 4],
-          },
-          ...emptyColSpanCells(colCount, colCount),
-        ])
-      }
-      lastRodzaj = group.rodzaj
-    }
-
-    const label = [group.rodzaj, group.produkt].filter(Boolean).join(' ')
-    tableBody.push([
+  const tableBody = [
+    tableHeader,
+    ...items.map((item) => [
+      { text: item.dodatek, fontSize: SUMMARY_TABLE_FONT },
       {
-        colSpan: colCount,
-        text: label,
+        text: formatDimensions(item.width, item.height, item.shortSide),
         fontSize: SUMMARY_TABLE_FONT,
-        bold: true,
-        alignment: 'left',
-        fillColor: SPEC_TABLE_HEADER_FILL,
-        color: '#1f2937',
-        margin: [2, 4, 2, 4],
       },
-      ...emptyColSpanCells(colCount, colCount),
-    ])
-    tableBody.push(columnHeader.map((cell) => ({ ...cell })))
-    group.items.forEach((item) => {
-      tableBody.push([
-        { text: item.dodatek, fontSize: SUMMARY_TABLE_FONT },
-        {
-          text: formatDimensions(item.width, item.height, item.shortSide),
-          fontSize: SUMMARY_TABLE_FONT,
-        },
-        { text: `${item.ilosc ?? 1} szt`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
-        { text: `${formatAreaM2(item.area)} m2`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
-      ])
-    })
-  })
+      { text: `${item.ilosc ?? 1} szt`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+      { text: `${formatAreaM2(item.area)} m2`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+    ]),
+  ]
 
   const tableBlock = {
     table: {
+      headerRows: 1,
       widths: ['*', '*', 36, 44],
       body: tableBody,
     },
