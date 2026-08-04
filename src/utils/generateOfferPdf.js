@@ -794,28 +794,14 @@ function buildSpecProduktSection(group, quote, clientRightColumn, { startIndex, 
   return sectionParts
 }
 
-function getOfferTableTotalWidth(widths) {
-  return widths.reduce((sum, width) => sum + Number(width), 0)
-}
-
 function buildOfferTableElement(table, { marginTop = 0 } = {}) {
-  const tableWidth = getOfferTableTotalWidth(table.widths)
-
   return {
-    columns: [
-      { width: '*', text: '' },
-      {
-        width: tableWidth,
-        table: {
-          headerRows: 1,
-          widths: table.widths,
-          body: table.tableBody,
-        },
-        layout: TABLE_LAYOUT,
-      },
-      { width: '*', text: '' },
-    ],
-    columnGap: 0,
+    table: {
+      headerRows: 1,
+      widths: table.widths,
+      body: table.tableBody,
+    },
+    layout: TABLE_LAYOUT,
     margin: [0, marginTop, 0, 0],
   }
 }
