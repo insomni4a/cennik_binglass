@@ -6,6 +6,7 @@ import {
   getDefaultLineValues,
   calculateLinePrice,
   getTrybProcent,
+  sumLinesAreaM2,
   DEFAULT_CENNIK,
 } from './services/pricingService'
 import { loadCatalog, lookupClient, USE_MOCK, USE_SHEET } from './services/dataService'
@@ -446,6 +447,8 @@ function App() {
       parsedLines.push({ ...line, ilosc, areaPerPiece, areaNum })
     }
 
+    const quoteTierAreaM2 = sumLinesAreaM2(parsedLines)
+
     calculatingRef.current = true
     setLoading(true)
     try {
@@ -465,12 +468,12 @@ function App() {
           line.produkt,
           line.dodatek,
           line.areaPerPiece,
-          line.areaNum
+          quoteTierAreaM2
         )
 
         if (unitPrice === null) {
           setError(
-            `Brak cennika dla: ${DEFAULT_CENNIK} / ${line.rodzaj} / ${line.produkt} / ${formatAreaM2(line.areaNum)} m² łącznie (lub nieznany dodatek).`
+            `Brak cennika dla: ${DEFAULT_CENNIK} / ${line.rodzaj} / ${line.produkt} / ${formatAreaM2(quoteTierAreaM2)} m² łącznie w ofercie (lub nieznany dodatek).`
           )
           return
         }
@@ -1061,8 +1064,8 @@ function App() {
                       aria-label="Powierzchnia m²"
                       title={
                         lineNeedsShortSide
-                          ? 'Łączna powierzchnia wiersza (formatka × ilość). Próg cenowy w cenniku wg tej sumy.'
-                          : 'Łączna powierzchnia wiersza (szer × wys × ilość). Próg cenowy w cenniku wg tej sumy.'
+                          ? 'Łączna powierzchnia wiersza (formatka × ilość). Próg cenowy w cenniku wg sumy m² całej oferty.'
+                          : 'Łączna powierzchnia wiersza (szer × wys × ilość). Próg cenowy w cenniku wg sumy m² całej oferty.'
                       }
                     />
                   </div>

@@ -107,7 +107,7 @@ export function findAddonPrice(dodatki, dodatekName) {
 
 /**
  * Cena jednej formatki = (stawka za m² × m² formatki) + dodatek.
- * Stawka wybierana wg tierAreaM2 (łączna pow. wiersza: formatka × ilość).
+ * Stawka wybierana wg tierAreaM2 (łączna pow. całej oferty).
  */
 export function calculateLinePrice(
   cenniki,
@@ -137,4 +137,8 @@ export function calculateLinePrice(
 export function getTrybProcent(tryby, trybName) {
   const row = tryby.find((t) => t.tryb === trybName)
   return row ? Number(row.procent) : 0
+}
+
+export function sumLinesAreaM2(lines) {
+  return lines.reduce((sum, line) => sum + Number(line.areaNum || 0), 0)
 }

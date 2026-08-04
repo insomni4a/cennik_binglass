@@ -574,8 +574,7 @@ function specTableTextCell(text, { bold = false, alignment = 'left' } = {}) {
   }
 }
 
-function buildSpecTableBody(items, startLp = 1) {
-  const colCount = 6
+function buildSpecTableHeaderRow() {
   const tableHeader = [
     specTableTextCell('Lp.', { bold: true }),
     specTableTextCell('Produkt', { bold: true }),
@@ -590,57 +589,66 @@ function buildSpecTableBody(items, startLp = 1) {
     cell.color = '#1f2937'
   })
 
-  const tableBody = [tableHeader]
+  return tableHeader
+}
 
-  items.forEach((item, i) => {
-    tableBody.push([
-      specTableTextCell(startLp + i),
-      specTableTextCell(item.produkt),
-      specTableTextCell(item.dodatek),
-      specTableTextCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
-      specTableTextCell(item.ilosc ?? 1, { bold: true }),
-      specTableTextCell(formatAreaM2(item.area)),
-    ])
-
-    tableBody.push([
-      {
-        colSpan: colCount,
-        stack: [
-          buildSquareRowUnderProduct(item.ilosc, { lineColor: SPEC_SQUARE_COLOR }),
-        ],
-        fillColor: SPEC_SQUARE_ROW_FILL,
-      },
-      ...emptyColSpanCells(colCount, colCount),
-    ])
-
-    tableBody.push([
-      {
-        colSpan: colCount,
-        stack: [buildBlackBorderField(getSquareRowHeight() * 2)],
-        fillColor: '#ffffff',
-      },
-      ...emptyColSpanCells(colCount, colCount),
-    ])
-  })
+function buildSpecItemBlock(item, lp) {
+  const colCount = 6
 
   return {
-    tableBody,
-    widths: SPEC_POSITIONS_TABLE_WIDTHS,
+    unbreakable: true,
+    table: {
+      widths: SPEC_POSITIONS_TABLE_WIDTHS,
+      body: [
+        [
+          specTableTextCell(lp),
+          specTableTextCell(item.produkt),
+          specTableTextCell(item.dodatek),
+          specTableTextCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
+          specTableTextCell(item.ilosc ?? 1, { bold: true }),
+          specTableTextCell(formatAreaM2(item.area)),
+        ],
+        [
+          {
+            colSpan: colCount,
+            stack: [buildSquareRowUnderProduct(item.ilosc, { lineColor: SPEC_SQUARE_COLOR })],
+            fillColor: SPEC_SQUARE_ROW_FILL,
+          },
+          ...emptyColSpanCells(colCount, colCount),
+        ],
+        [
+          {
+            colSpan: colCount,
+            stack: [buildBlackBorderField(getSquareRowHeight() * 2)],
+            fillColor: '#ffffff',
+          },
+          ...emptyColSpanCells(colCount, colCount),
+        ],
+      ],
+    },
+    layout: TABLE_LAYOUT,
+    margin: [0, 0, 0, 4],
   }
 }
 
-function buildSpecPositionsTableBlock(rodzaj, table) {
+function buildSpecPositionsTableBlock(rodzaj, items, startLp = 1) {
   return {
     stack: [
-      buildPozycjeHeader(rodzaj),
       {
-        table: {
-          headerRows: 1,
-          widths: table.widths,
-          body: table.tableBody,
-        },
-        layout: TABLE_LAYOUT,
+        unbreakable: true,
+        stack: [
+          buildPozycjeHeader(rodzaj),
+          {
+            table: {
+              headerRows: 1,
+              widths: SPEC_POSITIONS_TABLE_WIDTHS,
+              body: [buildSpecTableHeaderRow()],
+            },
+            layout: TABLE_LAYOUT,
+          },
+        ],
       },
+      ...items.map((item, index) => buildSpecItemBlock(item, startLp + index)),
     ],
   }
 }
@@ -697,7 +705,7 @@ function buildRodzajSummaryTable(items) {
   }
 }
 
-function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startIndex, isFirstGroup }) {
+function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup, startLp }) {
   const drawingScale = getDrawingScale(group.items.length)
   const sectionParts = []
 
@@ -709,7 +717,7 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
   }
 
   sectionParts.push(
-    buildSpecPositionsTableBlock(group.rodzaj, table),
+    buildSpecPositionsTableBlock(group.rodzaj, group.items, startLp),
     buildRodzajDrawingsBlock(group.rodzaj, group.items, {
       showPrices: false,
       startIndex,
@@ -722,21 +730,43 @@ function buildSpecRodzajSection(group, table, quote, clientRightColumn, { startI
   return sectionParts
 }
 
-function buildOfferRodzajTableSection(group, table, { isFirstGroup }) {
+function buildOfferTableElement(table, { marginTop = 0 } = {}) {
+  return {
+    table: {
+      headerRows: 1,
+      widths: table.widths,
+      body: table.tableBody,
+    },
+    layout: TABLE_LAYOUT,
+    margin: [0, marginTop, 0, 0],
+  }
+}
+
+/** Krótsze tabele — mniejsze ryzyko nachodzenia wierszy przy pierwszym łamaniu strony (pdfmake). */
+function buildOfferTableSections(items, quote, startLp = 1) {
+  const CHUNK_SIZE = 14
+  if (items.length <= CHUNK_SIZE) {
+    const table = buildOfferTableBody(items, quote, startLp)
+    return [buildOfferTableElement(table)]
+  }
+
+  const sections = []
+  for (let offset = 0; offset < items.length; offset += CHUNK_SIZE) {
+    const slice = items.slice(offset, offset + CHUNK_SIZE)
+    const table = buildOfferTableBody(slice, quote, startLp + offset)
+    sections.push(buildOfferTableElement(table, { marginTop: offset > 0 ? 6 : 0 }))
+  }
+  return sections
+}
+
+function buildOfferRodzajTableSection(group, items, quote, { isFirstGroup, startLp }) {
   return [
     {
       text: `Pozycje oferty: ${group.rodzaj}`,
       style: isFirstGroup ? 'sectionFirst' : 'section',
       pageBreak: isFirstGroup ? undefined : 'before',
     },
-    {
-      table: {
-        headerRows: 1,
-        widths: table.widths,
-        body: table.tableBody,
-      },
-      layout: TABLE_LAYOUT,
-    },
+    ...buildOfferTableSections(items, quote, startLp),
   ]
 }
 
@@ -923,11 +953,11 @@ function buildSpecDocDefinition(quote) {
   let globalLp = 1
 
   rodzajGroups.forEach((group, groupIndex) => {
-    const table = buildSpecTableBody(group.items, globalLp)
     content.push(
-      ...buildSpecRodzajSection(group, table, quote, clientRightColumn, {
+      ...buildSpecRodzajSection(group, quote, clientRightColumn, {
         startIndex: globalLp - 1,
         isFirstGroup: groupIndex === 0,
+        startLp: globalLp,
       })
     )
     globalLp += group.items.length
@@ -995,10 +1025,10 @@ function buildOfferOnlyDocDefinition(quote) {
 
   let globalLp = 1
   rodzajGroups.forEach((group, groupIndex) => {
-    const table = buildOfferTableBody(group.items, quote, globalLp)
     content.push(
-      ...buildOfferRodzajTableSection(group, table, {
+      ...buildOfferRodzajTableSection(group, group.items, quote, {
         isFirstGroup: groupIndex === 0,
+        startLp: globalLp,
       })
     )
     globalLp += group.items.length
