@@ -12,6 +12,7 @@ const SPEC_SQUARE_COLOR = '#9ca3af'
 const SPEC_TABLE_LINE = '#d1d5db'
 const SPEC_TABLE_HEADER_FILL = '#eef0f2'
 const DRAWING_DESC_FONT = 9
+const OFFER_TABLE_FONT = 6
 
 function formatMoney(value) {
   return `${Number(value).toFixed(2)} zł`
@@ -356,6 +357,31 @@ function buildSpecFirstPageTopBlock(quote, clientRightColumn) {
   }
 }
 
+function buildOfferFirstPageTopBlock(quote, clientRightColumn) {
+  return {
+    columns: [
+      {
+        width: '*',
+        stack: [
+          ...buildOfferDocHeader(),
+          {
+            stack: [
+              { text: 'Dane klienta', style: 'sectionFirst' },
+              buildSpecClientInfoColumns(quote, clientRightColumn, { includeOrderColumn: false }),
+            ],
+          },
+        ],
+      },
+      {
+        width: SPEC_ORDER_BOX_WIDTH,
+        stack: buildSpecOrderInfoStack(),
+      },
+    ],
+    columnGap: 10,
+    margin: [0, 0, 0, 4],
+  }
+}
+
 function buildSpecDocHeader() {
   return [
     { text: 'Cennik Binglass', style: 'title' },
@@ -377,7 +403,7 @@ function buildOfferDocHeader() {
       text: `Data wygenerowania: ${formatDate()}`,
       fontSize: 9,
       color: '#888',
-      margin: [0, 8, 0, 0],
+      margin: [0, 8, 0, 10],
     },
   ]
 }
@@ -534,21 +560,29 @@ function buildOfferTableBody(items, quote, startLp = 1) {
   const tableBody = [
     tableHeader,
     ...items.map((item, i) => [
-      String(startLp + i),
-      item.rodzaj,
-      item.produkt,
-      item.dodatek,
-      { text: formatDimensions(item.width, item.height, item.shortSide), bold: true },
-      { text: String(item.ilosc ?? 1), alignment: 'right', bold: true },
-      { text: formatAreaM2(item.area), alignment: 'right' },
-      `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
-      { text: formatMoney(item.lineTotal), alignment: 'right' },
+      { text: String(startLp + i), fontSize: OFFER_TABLE_FONT },
+      { text: item.rodzaj, fontSize: OFFER_TABLE_FONT },
+      { text: item.produkt, fontSize: OFFER_TABLE_FONT },
+      { text: item.dodatek, fontSize: OFFER_TABLE_FONT },
+      {
+        text: formatDimensions(item.width, item.height, item.shortSide),
+        bold: true,
+        fontSize: OFFER_TABLE_FONT,
+      },
+      { text: String(item.ilosc ?? 1), alignment: 'right', bold: true, fontSize: OFFER_TABLE_FONT },
+      { text: formatAreaM2(item.area), alignment: 'right', fontSize: OFFER_TABLE_FONT },
+      {
+        text: `${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`,
+        fontSize: OFFER_TABLE_FONT,
+      },
+      { text: formatMoney(item.lineTotal), alignment: 'right', fontSize: OFFER_TABLE_FONT },
       ...(hasRabat
         ? [
             {
               text: formatMoney(item.lineTotalAfterRabat ?? item.lineTotal),
               alignment: 'right',
               style: 'priceGreen',
+              fontSize: OFFER_TABLE_FONT,
             },
           ]
         : []),
@@ -909,7 +943,7 @@ const PDF_STYLES = {
   section: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 16, 0, 8] },
   sectionFirst: { fontSize: 13, bold: true, color: '#1e40af', margin: [0, 10, 0, 8] },
   sectionSub: { fontSize: 11, bold: true, color: '#1e40af', margin: [0, 10, 0, 6] },
-  tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: 9 },
+  tableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: OFFER_TABLE_FONT },
   specTableHeader: { bold: true, fillColor: SPEC_TABLE_HEADER_FILL, color: '#1f2937', fontSize: 9 },
   specTableCell: { fontSize: 9 },
   summaryTableHeader: { bold: true, fillColor: '#f1f5f9', fontSize: SUMMARY_TABLE_FONT },
@@ -1016,31 +1050,7 @@ function buildOfferOnlyDocDefinition(quote) {
   const rodzajGroups = groupItemsByRodzaj(quote.items)
   const clientRightColumn = buildOfferClientRightColumn(quote, totalAreaM2)
   const content = [
-    ...buildOfferDocHeader(),
-    { text: 'Dane klienta', style: 'sectionFirst' },
-    {
-      columns: [
-        {
-          width: '*',
-          stack: [
-            {
-              text: [
-                { text: 'Firma: ', bold: true },
-                { text: quote.companyName, fontSize: CLIENT_NAME_FONT },
-              ],
-            },
-            {
-              text: [{ text: 'NIP: ', bold: true }, formatNip(quote.nip)],
-              margin: [0, 4, 0, 0],
-            },
-          ],
-        },
-        {
-          width: '*',
-          stack: clientRightColumn,
-        },
-      ],
-    },
+    buildOfferFirstPageTopBlock(quote, clientRightColumn),
   ]
 
   if (!quote.found) {
