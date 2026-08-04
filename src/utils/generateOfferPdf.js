@@ -11,7 +11,6 @@ const SPEC_ACCENT_RED = '#dc2626'
 const SPEC_SQUARE_COLOR = '#9ca3af'
 const SPEC_TABLE_LINE = '#d1d5db'
 const SPEC_TABLE_HEADER_FILL = '#eef0f2'
-const SPEC_SQUARE_ROW_FILL = '#f3f4f6'
 const DRAWING_DESC_FONT = 9
 
 function formatMoney(value) {
@@ -133,23 +132,6 @@ const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
 const OFFER_POSITIONS_TABLE_WIDTHS = [22, 40, '*', 48, 62, 24, 28, 52, 52]
-const SPEC_POSITIONS_TABLE_WIDTHS = [22, '*', 48, 62, 24, 28]
-
-function buildSquareRowLine(count, lineColor) {
-  return {
-    columns: [
-      {
-        width: 'auto',
-        columns: Array.from({ length: count }, () => ({
-          width: 'auto',
-          ...buildSquareIconCanvas(SQUARE_ICON_SIZE, lineColor),
-        })),
-        columnGap: SQUARE_GAP,
-      },
-      { width: '*', text: '' },
-    ],
-  }
-}
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -183,60 +165,6 @@ function buildInlineSquares(
   return {
     stack: rows,
     margin,
-  }
-}
-
-/** Osobny wiersz pod produktem: poziomy rząd ikon square wyrównany do lewej (max 18 w rzędzie). */
-function buildSquareRowUnderProduct(ilosc, { lineColor = '#2563eb' } = {}) {
-  const total = Math.max(1, Number(ilosc ?? 1))
-  const rowCount = Math.ceil(total / SQUARES_PER_ROW)
-  const rows = []
-
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const offset = rowIndex * SQUARES_PER_ROW
-    rows.push({
-      ...buildSquareRowLine(Math.min(SQUARES_PER_ROW, total - offset), lineColor),
-      margin: [0, 0, 0, rowIndex < rowCount - 1 ? SQUARE_ROW_GAP : 0],
-    })
-  }
-
-  return {
-    stack: rows,
-    margin: [0, 4, 0, 4],
-  }
-}
-
-function buildBlackBorderField(rowHeight = getSquareRowHeight() * 2) {
-  return {
-    table: {
-      widths: ['*'],
-      heights: [rowHeight],
-      body: [
-        [
-          {
-            text: 'UWAGI',
-            fontSize: DRAWING_DESC_FONT,
-            bold: true,
-            color: '#374151',
-            fillColor: '#ffffff',
-            margin: [4, 4, 4, 4],
-            alignment: 'left',
-          },
-        ],
-      ],
-    },
-    layout: {
-      hLineWidth: () => 1,
-      vLineWidth: () => 1,
-      hLineColor: () => '#000000',
-      vLineColor: () => '#000000',
-      fillColor: () => '#ffffff',
-      paddingLeft: () => 0,
-      paddingRight: () => 0,
-      paddingTop: () => 0,
-      paddingBottom: () => 0,
-    },
-    margin: [0, 0, 0, 0],
   }
 }
 
@@ -424,12 +352,26 @@ function buildOfferDocHeader() {
   ]
 }
 
-function buildPozycjeHeader(rodzaj) {
+function getGroupProduktLabel(items) {
+  const produkty = [...new Set(items.map((item) => item.produkt).filter(Boolean))]
+  if (produkty.length === 0) return ''
+  if (produkty.length === 1) return produkty[0]
+  return produkty.join(', ')
+}
+
+function buildPozycjeHeader(rodzaj, items) {
+  const produkt = getGroupProduktLabel(items)
+  const headerParts = [
+    { text: 'Pozycje — wymiary i formatek: ', fontSize: 11, bold: true, color: '#1e40af' },
+    { text: rodzaj, fontSize: 22, bold: true, color: SPEC_ACCENT_RED },
+  ]
+
+  if (produkt) {
+    headerParts.push({ text: ` ${produkt}`, fontSize: 22, bold: true, color: SPEC_ACCENT_RED })
+  }
+
   return {
-    text: [
-      { text: 'Pozycje — wymiary i formatek: ', fontSize: 11, bold: true, color: '#1e40af' },
-      { text: rodzaj, fontSize: 22, bold: true, color: SPEC_ACCENT_RED },
-    ],
+    text: headerParts,
     margin: [0, 6, 0, 8],
   }
 }
@@ -600,94 +542,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
   }
 }
 
-function specTableTextCell(text, { bold = false, alignment = 'left' } = {}) {
-  return {
-    text: String(text ?? ''),
-    style: 'specTableCell',
-    bold,
-    alignment,
-  }
-}
-
-function buildSpecTableHeaderRow() {
-  const tableHeader = [
-    specTableTextCell('Lp.', { bold: true }),
-    specTableTextCell('Produkt', { bold: true }),
-    specTableTextCell('Dodatek', { bold: true }),
-    specTableTextCell('Wymiary', { bold: true }),
-    specTableTextCell('Ilość', { bold: true }),
-    specTableTextCell('m²', { bold: true }),
-  ]
-
-  tableHeader.forEach((cell) => {
-    cell.fillColor = SPEC_TABLE_HEADER_FILL
-    cell.color = '#1f2937'
-  })
-
-  return tableHeader
-}
-
-function buildSpecItemBlock(item, lp) {
-  const colCount = 6
-
-  return {
-    unbreakable: true,
-    table: {
-      widths: SPEC_POSITIONS_TABLE_WIDTHS,
-      body: [
-        [
-          specTableTextCell(lp),
-          specTableTextCell(item.produkt),
-          specTableTextCell(item.dodatek),
-          specTableTextCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
-          specTableTextCell(item.ilosc ?? 1, { bold: true }),
-          specTableTextCell(formatAreaM2(item.area)),
-        ],
-        [
-          {
-            colSpan: colCount,
-            stack: [buildSquareRowUnderProduct(item.ilosc, { lineColor: SPEC_SQUARE_COLOR })],
-            fillColor: SPEC_SQUARE_ROW_FILL,
-          },
-          ...emptyColSpanCells(colCount, colCount),
-        ],
-        [
-          {
-            colSpan: colCount,
-            stack: [buildBlackBorderField(getSquareRowHeight() * 2)],
-            fillColor: '#ffffff',
-          },
-          ...emptyColSpanCells(colCount, colCount),
-        ],
-      ],
-    },
-    layout: TABLE_LAYOUT,
-    margin: [0, 0, 0, 4],
-  }
-}
-
-function buildSpecPositionsTableBlock(rodzaj, items, startLp = 1) {
-  return {
-    stack: [
-      {
-        unbreakable: true,
-        stack: [
-          buildPozycjeHeader(rodzaj),
-          {
-            table: {
-              headerRows: 1,
-              widths: SPEC_POSITIONS_TABLE_WIDTHS,
-              body: [buildSpecTableHeaderRow()],
-            },
-            layout: TABLE_LAYOUT,
-          },
-        ],
-      },
-      ...items.map((item, index) => buildSpecItemBlock(item, startLp + index)),
-    ],
-  }
-}
-
 function buildRodzajAreaSummary(items, rodzaj) {
   const totalM2 = sumItemsAreaM2(items)
   return {
@@ -756,7 +610,7 @@ function buildSpecFinalSummaryUwagiRow(colCount) {
   ]
 }
 
-function buildSpecFinalSummaryTable(items) {
+function buildSpecFinalSummaryTable(items, { pageBreak = false } = {}) {
   const colCount = SPEC_FINAL_SUMMARY_COL_COUNT
   const headerHeight = getSpecFinalSummaryRowHeight(1)
   const heights = [headerHeight]
@@ -796,8 +650,7 @@ function buildSpecFinalSummaryTable(items) {
     }),
   ]
 
-  return {
-    pageBreak: 'before',
+  const tableBlock = {
     table: {
       headerRows: 1,
       widths: ['auto', 'auto', 'auto', 'auto', '*'],
@@ -807,41 +660,21 @@ function buildSpecFinalSummaryTable(items) {
     layout: SPEC_TABLE_LAYOUT,
     margin: [0, 0, 0, 0],
   }
+
+  if (pageBreak) {
+    return { pageBreak: 'before', ...tableBlock }
+  }
+
+  return tableBlock
 }
 
-function buildRodzajSummaryTable(items) {
-  const tableHeader = [
-    { text: 'Dodatek', style: 'specSummaryTableHeader' },
-    { text: 'Wymiar', style: 'specSummaryTableHeader' },
-    { text: 'Ilość', style: 'specSummaryTableHeader', alignment: 'right' },
-    { text: 'm²', style: 'specSummaryTableHeader', alignment: 'right' },
-  ]
-
-  const tableBody = [
-    tableHeader,
-    ...items.map((item) => [
-      { text: item.dodatek, fontSize: SUMMARY_TABLE_FONT },
-      {
-        text: formatDimensions(item.width, item.height, item.shortSide),
-        fontSize: SUMMARY_TABLE_FONT,
-      },
-      { text: `${item.ilosc ?? 1} szt`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
-      { text: `${formatAreaM2(item.area)} m2`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
-    ]),
-  ]
-
+function buildSpecRodzajSummaryBlock(rodzaj, items) {
   return {
-    table: {
-      headerRows: 1,
-      widths: ['*', '*', 36, 44],
-      body: tableBody,
-    },
-    layout: SPEC_TABLE_LAYOUT,
-    margin: [0, 0, 0, 12],
+    stack: [buildPozycjeHeader(rodzaj, items), buildSpecFinalSummaryTable(items)],
   }
 }
 
-function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup, startLp }) {
+function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup }) {
   const drawingScale = getDrawingScale(group.items.length)
   const sectionParts = []
 
@@ -853,14 +686,13 @@ function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, i
   }
 
   sectionParts.push(
-    buildSpecPositionsTableBlock(group.rodzaj, group.items, startLp),
+    buildSpecRodzajSummaryBlock(group.rodzaj, group.items),
     buildRodzajDrawingsBlock(group.rodzaj, group.items, {
       showPrices: false,
       startIndex,
       ...drawingScale,
     }),
-    buildRodzajAreaSummary(group.items, group.rodzaj),
-    buildRodzajSummaryTable(group.items)
+    buildRodzajAreaSummary(group.items, group.rodzaj)
   )
 
   return sectionParts
@@ -1093,7 +925,6 @@ function buildSpecDocDefinition(quote) {
       ...buildSpecRodzajSection(group, quote, clientRightColumn, {
         startIndex: globalLp - 1,
         isFirstGroup: groupIndex === 0,
-        startLp: globalLp,
       })
     )
     globalLp += group.items.length
@@ -1101,7 +932,7 @@ function buildSpecDocDefinition(quote) {
 
   content.push(
     buildTotalAreaBlock(totalAreaM2),
-    buildSpecFinalSummaryTable(quote.items),
+    buildSpecFinalSummaryTable(quote.items, { pageBreak: true }),
     {
       text: 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.',
       style: 'footer',
