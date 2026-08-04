@@ -160,6 +160,7 @@ function buildInlineSquares(
     gap = SQUARE_GAP,
     rowGap = SQUARE_ROW_GAP,
     squaresPerRow = SQUARES_PER_ROW,
+    margin = [2, 2, 0, 2],
   } = {}
 ) {
   const total = Math.max(1, Number(ilosc ?? 1))
@@ -181,7 +182,7 @@ function buildInlineSquares(
 
   return {
     stack: rows,
-    margin: [2, 2, 0, 2],
+    margin,
   }
 }
 
@@ -709,15 +710,30 @@ const SUMMARY_TABLE_FONT = 5
 const SPEC_FINAL_SUMMARY_FONT = 6
 const SPEC_FINAL_SUMMARY_SQUARE_SIZE = SQUARE_ICON_SIZE / 2
 const SPEC_FINAL_SUMMARY_SQUARE_GAP = 3
+const SPEC_FINAL_SUMMARY_ROW_PAD = 1
 const SPEC_FINAL_SUMMARY_COL_COUNT = 5
+
+function getSpecFinalSummarySquareStackHeight(ilosc) {
+  const total = Math.max(1, Number(ilosc ?? 1))
+  const squareRows = Math.ceil(total / SQUARES_PER_ROW)
+  if (squareRows <= 1) return SPEC_FINAL_SUMMARY_SQUARE_SIZE
+  return (
+    squareRows * SPEC_FINAL_SUMMARY_SQUARE_SIZE +
+    (squareRows - 1) * SPEC_FINAL_SUMMARY_SQUARE_GAP
+  )
+}
+
+function getSpecFinalSummaryRowHeight(ilosc = 1) {
+  return getSpecFinalSummarySquareStackHeight(ilosc) + SPEC_FINAL_SUMMARY_ROW_PAD * 2
+}
 
 function buildSpecFinalSummaryCell(text, { bold = false } = {}) {
   return {
     text: String(text ?? ''),
     fontSize: SPEC_FINAL_SUMMARY_FONT,
     bold,
-    alignment: 'center',
-    margin: [2, 6, 2, 6],
+    alignment: 'left',
+    margin: [2, SPEC_FINAL_SUMMARY_ROW_PAD, 2, SPEC_FINAL_SUMMARY_ROW_PAD],
   }
 }
 
@@ -730,12 +746,10 @@ function buildSpecFinalSummaryHeaderCell(text) {
 }
 
 function buildSpecFinalSummaryUwagiRow(colCount) {
-  const rowHeight = (SPEC_FINAL_SUMMARY_SQUARE_SIZE + 8) * 2
-
   return [
     {
       colSpan: colCount,
-      stack: [buildBlackBorderField(rowHeight)],
+      text: '',
       margin: [0, 0, 0, 0],
     },
     ...emptyColSpanCells(colCount, colCount),
@@ -744,6 +758,8 @@ function buildSpecFinalSummaryUwagiRow(colCount) {
 
 function buildSpecFinalSummaryTable(items) {
   const colCount = SPEC_FINAL_SUMMARY_COL_COUNT
+  const headerHeight = getSpecFinalSummaryRowHeight(1)
+  const heights = [headerHeight]
   const tableBody = [
     [
       buildSpecFinalSummaryHeaderCell('Dodatek'),
@@ -752,38 +768,40 @@ function buildSpecFinalSummaryTable(items) {
       buildSpecFinalSummaryHeaderCell('m²'),
       buildSpecFinalSummaryHeaderCell(''),
     ],
-    ...items.flatMap((item) => [
-      [
-        buildSpecFinalSummaryCell(item.dodatek),
-        buildSpecFinalSummaryCell(formatDimensions(item.width, item.height, item.shortSide)),
-        buildSpecFinalSummaryCell(`${item.ilosc ?? 1} szt`),
-        buildSpecFinalSummaryCell(`${formatAreaM2(item.area)} m2`),
-        {
-          columns: [
-            { width: '*', text: '' },
-            {
-              width: 'auto',
-              stack: [
-                buildInlineSquares(item.ilosc, {
-                  iconSize: SPEC_FINAL_SUMMARY_SQUARE_SIZE,
-                  gap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
-                  rowGap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
-                }),
-              ],
-            },
-            { width: '*', text: '' },
-          ],
-          margin: [2, 6, 2, 6],
-        },
-      ],
-      buildSpecFinalSummaryUwagiRow(colCount),
-    ]),
+    ...items.flatMap((item) => {
+      const rowHeight = getSpecFinalSummaryRowHeight(item.ilosc)
+      heights.push(rowHeight, rowHeight)
+
+      return [
+        [
+          buildSpecFinalSummaryCell(item.dodatek),
+          buildSpecFinalSummaryCell(formatDimensions(item.width, item.height, item.shortSide)),
+          buildSpecFinalSummaryCell(`${item.ilosc ?? 1} szt`),
+          buildSpecFinalSummaryCell(`${formatAreaM2(item.area)} m2`),
+          {
+            stack: [
+              buildInlineSquares(item.ilosc, {
+                iconSize: SPEC_FINAL_SUMMARY_SQUARE_SIZE,
+                gap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
+                rowGap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
+                margin: [0, 0, 0, 0],
+              }),
+            ],
+            alignment: 'left',
+            margin: [2, SPEC_FINAL_SUMMARY_ROW_PAD, 2, SPEC_FINAL_SUMMARY_ROW_PAD],
+          },
+        ],
+        buildSpecFinalSummaryUwagiRow(colCount),
+      ]
+    }),
   ]
 
   return {
+    pageBreak: 'before',
     table: {
       headerRows: 1,
       widths: ['auto', 'auto', 'auto', 'auto', '*'],
+      heights,
       body: tableBody,
     },
     layout: SPEC_TABLE_LAYOUT,
