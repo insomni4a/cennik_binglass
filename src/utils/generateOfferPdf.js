@@ -187,6 +187,36 @@ function groupItemsByRodzaj(items) {
   return order.map((rodzaj) => ({ rodzaj, items: map.get(rodzaj) }))
 }
 
+function groupItemsByProdukt(items) {
+  const groups = []
+  const indexByKey = new Map()
+
+  for (const item of items) {
+    const key = `${item.rodzaj}\u0000${item.produkt}`
+    if (!indexByKey.has(key)) {
+      indexByKey.set(key, groups.length)
+      groups.push({ rodzaj: item.rodzaj, produkt: item.produkt, items: [] })
+    }
+    groups[indexByKey.get(key)].items.push(item)
+  }
+
+  groups.sort((a, b) => {
+    const byRodzaj = String(a.rodzaj).localeCompare(String(b.rodzaj), 'pl')
+    if (byRodzaj !== 0) return byRodzaj
+    return String(a.produkt).localeCompare(String(b.produkt), 'pl')
+  })
+
+  return groups
+}
+
+function sortItemsByRodzajProdukt(items) {
+  return [...items].sort((a, b) => {
+    const byRodzaj = String(a.rodzaj).localeCompare(String(b.rodzaj), 'pl')
+    if (byRodzaj !== 0) return byRodzaj
+    return String(a.produkt).localeCompare(String(b.produkt), 'pl')
+  })
+}
+
 const SPEC_ORDER_BOX_WIDTH = 158
 const SPEC_ORDER_FIELD_HEIGHT = getSquareRowHeight() * 2
 const SPEC_ORDER_BORDER_COLOR = '#2563eb'
@@ -352,15 +382,7 @@ function buildOfferDocHeader() {
   ]
 }
 
-function getGroupProduktLabel(items) {
-  const produkty = [...new Set(items.map((item) => item.produkt).filter(Boolean))]
-  if (produkty.length === 0) return ''
-  if (produkty.length === 1) return produkty[0]
-  return produkty.join(', ')
-}
-
-function buildPozycjeHeader(rodzaj, items) {
-  const produkt = getGroupProduktLabel(items)
+function buildPozycjeHeader(rodzaj, produkt) {
   const headerParts = [
     { text: 'Pozycje — wymiary i formatek: ', fontSize: 11, bold: true, color: '#1e40af' },
     { text: rodzaj, fontSize: 22, bold: true, color: SPEC_ACCENT_RED },
@@ -542,15 +564,16 @@ function buildOfferTableBody(items, quote, startLp = 1) {
   }
 }
 
-function buildRodzajAreaSummary(items, rodzaj) {
+function buildRodzajAreaSummary(items, rodzaj, produkt) {
   const totalM2 = sumItemsAreaM2(items)
+  const label = produkt ? `${rodzaj} · ${produkt}` : rodzaj
   return {
     columns: [
       { width: '*', text: '' },
       {
         width: 'auto',
         text: [
-          { text: `Łącznie m² (${rodzaj}): `, bold: true },
+          { text: `Łącznie m² (${label}): `, bold: true },
           { text: `${formatAreaM2(totalM2)} m²`, bold: true, color: '#1e40af' },
         ],
         margin: [0, 6, 0, 4],
@@ -668,31 +691,67 @@ function buildSpecFinalSummaryTable(items, { pageBreak = false } = {}) {
   return tableBlock
 }
 
-function buildSpecRodzajSummaryBlock(rodzaj, items) {
+function buildSpecRodzajSummaryBlock(rodzaj, produkt, items) {
   return {
-    stack: [buildPozycjeHeader(rodzaj, items), buildSpecFinalSummaryTable(items)],
+    stack: [buildPozycjeHeader(rodzaj, produkt), buildSpecFinalSummaryTable(items)],
   }
 }
 
-function buildSpecRodzajSection(group, quote, clientRightColumn, { startIndex, isFirstGroup }) {
+function buildRodzajSummaryTable(items, { pageBreak = false } = {}) {
+  const tableHeader = [
+    { text: 'Dodatek', style: 'specSummaryTableHeader' },
+    { text: 'Wymiar', style: 'specSummaryTableHeader' },
+    { text: 'Ilość', style: 'specSummaryTableHeader', alignment: 'right' },
+    { text: 'm²', style: 'specSummaryTableHeader', alignment: 'right' },
+  ]
+
+  const tableBody = [
+    tableHeader,
+    ...items.map((item) => [
+      { text: item.dodatek, fontSize: SUMMARY_TABLE_FONT },
+      {
+        text: formatDimensions(item.width, item.height, item.shortSide),
+        fontSize: SUMMARY_TABLE_FONT,
+      },
+      { text: `${item.ilosc ?? 1} szt`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+      { text: `${formatAreaM2(item.area)} m2`, fontSize: SUMMARY_TABLE_FONT, alignment: 'right' },
+    ]),
+  ]
+
+  const tableBlock = {
+    table: {
+      headerRows: 1,
+      widths: ['*', '*', 36, 44],
+      body: tableBody,
+    },
+    layout: SPEC_TABLE_LAYOUT,
+    margin: [0, 0, 0, 12],
+  }
+
+  if (pageBreak) {
+    return { pageBreak: 'before', ...tableBlock }
+  }
+
+  return tableBlock
+}
+
+function buildSpecProduktSection(group, quote, clientRightColumn, { startIndex, isFirstGroup }) {
   const drawingScale = getDrawingScale(group.items.length)
   const sectionParts = []
 
-  if (isFirstGroup) {
-    sectionParts.push(buildSpecFirstPageTopBlock(quote, clientRightColumn))
-  } else {
+  if (!isFirstGroup) {
     sectionParts.push({ text: '', pageBreak: 'before' })
-    sectionParts.push(buildSpecClientDataBlock(quote, clientRightColumn))
   }
 
   sectionParts.push(
-    buildSpecRodzajSummaryBlock(group.rodzaj, group.items),
+    buildSpecFirstPageTopBlock(quote, clientRightColumn),
+    buildSpecRodzajSummaryBlock(group.rodzaj, group.produkt, group.items),
     buildRodzajDrawingsBlock(group.rodzaj, group.items, {
       showPrices: false,
       startIndex,
       ...drawingScale,
     }),
-    buildRodzajAreaSummary(group.items, group.rodzaj)
+    buildRodzajAreaSummary(group.items, group.rodzaj, group.produkt)
   )
 
   return sectionParts
@@ -915,14 +974,14 @@ function buildOfferClientRightColumn(quote, totalAreaM2) {
 
 function buildSpecDocDefinition(quote) {
   const totalAreaM2 = sumItemsAreaM2(quote.items)
-  const rodzajGroups = groupItemsByRodzaj(quote.items)
+  const produktGroups = groupItemsByProdukt(quote.items)
   const clientRightColumn = buildSpecClientRightColumn(quote, totalAreaM2)
   const content = []
   let globalLp = 1
 
-  rodzajGroups.forEach((group, groupIndex) => {
+  produktGroups.forEach((group, groupIndex) => {
     content.push(
-      ...buildSpecRodzajSection(group, quote, clientRightColumn, {
+      ...buildSpecProduktSection(group, quote, clientRightColumn, {
         startIndex: globalLp - 1,
         isFirstGroup: groupIndex === 0,
       })
@@ -930,9 +989,12 @@ function buildSpecDocDefinition(quote) {
     globalLp += group.items.length
   })
 
+  const sortedItems = sortItemsByRodzajProdukt(quote.items)
+
   content.push(
     buildTotalAreaBlock(totalAreaM2),
-    buildSpecFinalSummaryTable(quote.items, { pageBreak: true }),
+    buildRodzajSummaryTable(sortedItems, { pageBreak: true }),
+    buildSpecFinalSummaryTable(sortedItems, { pageBreak: true }),
     {
       text: 'Dokument ma charakter informacyjny — specyfikacja wymiarów bez cen.',
       style: 'footer',
