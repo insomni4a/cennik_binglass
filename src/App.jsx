@@ -1266,19 +1266,13 @@ function App() {
                   <span>{formatAreaM2(quoteTotalAreaM2)} m²</span>
                 </div>
                 <div className="result-footer-row">
-                  <span>Suma pozycji</span>
-                  <span>{quote.subtotal.toFixed(2)} zł</span>
+                  <span>Suma pozycji z rabatem klienta</span>
+                  <span>{quote.subtotalAfterRabat.toFixed(2)} zł</span>
                 </div>
                 {quote.surcharge > 0 && (
                   <div className="result-footer-row">
-                    <span>Narzut trybu</span>
+                    <span>Narzut trybu ({quote.tryb})</span>
                     <span>+{quote.surcharge.toFixed(2)} zł</span>
-                  </div>
-                )}
-                {quote.discountAmount > 0 && (
-                  <div className="result-footer-row">
-                    <span>Cena z rabatem</span>
-                    <span>{quote.subtotalAfterRabat.toFixed(2)} zł</span>
                   </div>
                 )}
               </div>
