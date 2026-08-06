@@ -132,7 +132,10 @@ function getSquareRowHeight() {
 const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
-const OFFER_POSITIONS_TABLE_WIDTHS = [20, 44, 54, 44, 58, 11, 26, 48, 48]
+const OFFER_POSITIONS_BASE_WIDTHS = [20, 44, 54, 44, 58, 11, 26]
+const OFFER_PRICE_COLUMN_WIDTH = 48
+const OFFER_RABAT_COLUMN_WIDTH = 52
+const OFFER_TRYB_COLUMN_WIDTH = 48
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -564,9 +567,9 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     { text: 'Wymiary', style: 'tableHeader', noWrap: true },
     { text: 'Ilość', style: 'tableHeader', alignment: 'right', noWrap: true },
     { text: 'm²', style: 'tableHeader', alignment: 'right', noWrap: true },
-    { text: 'Tryb', style: 'tableHeader', noWrap: true },
     { text: 'Cena podst.', style: 'tableHeader', alignment: 'right', noWrap: true },
     ...(hasRabat ? [{ text: 'Po rabacie', style: 'tableHeader', alignment: 'right', noWrap: true }] : []),
+    { text: 'Tryb', style: 'tableHeader', noWrap: true },
   ]
 
   const tableBody = [
@@ -579,7 +582,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
       offerTableCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
       offerTableCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
       offerTableCell(formatAreaM2(item.area), { alignment: 'right' }),
-      offerTableCell(`${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`),
       offerTableCell(formatMoney(item.lineTotal), { alignment: 'right' }),
       ...(hasRabat
         ? [
@@ -589,6 +591,7 @@ function buildOfferTableBody(items, quote, startLp = 1) {
             }),
           ]
         : []),
+      offerTableCell(`${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`),
     ]),
   ]
 
@@ -596,8 +599,13 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     hasRabat,
     tableBody,
     widths: hasRabat
-      ? [...OFFER_POSITIONS_TABLE_WIDTHS, 52]
-      : OFFER_POSITIONS_TABLE_WIDTHS,
+      ? [
+          ...OFFER_POSITIONS_BASE_WIDTHS,
+          OFFER_PRICE_COLUMN_WIDTH,
+          OFFER_RABAT_COLUMN_WIDTH,
+          OFFER_TRYB_COLUMN_WIDTH,
+        ]
+      : [...OFFER_POSITIONS_BASE_WIDTHS, OFFER_PRICE_COLUMN_WIDTH, OFFER_TRYB_COLUMN_WIDTH],
   }
 }
 
@@ -861,58 +869,74 @@ function buildTotalAreaBlock(totalAreaM2) {
   }
 }
 
+function formatQuoteTrybLabel(quote) {
+  if (quote.tryb === 'Różne') return 'różny wg pozycji'
+  const pct = quote.procent > 0 ? ` (+${quote.procent}%)` : ''
+  return `${quote.tryb || 'Standard'}${pct}`
+}
+
+function buildPriceSummaryRow(label, value, { valueColor, marginBottom = 4 } = {}) {
+  return {
+    columns: [
+      { text: label, width: '*' },
+      {
+        text: value,
+        alignment: 'right',
+        width: 80,
+        ...(valueColor ? { color: valueColor } : {}),
+      },
+    ],
+    margin: [0, 0, 0, marginBottom],
+  }
+}
+
 function buildPriceSummary(quote, hasRabat) {
   const totalColor = hasRabat ? PRICE_GREEN : '#166534'
+  const trybLabel = formatQuoteTrybLabel(quote)
+  const stack = [
+    buildPriceSummaryRow('Cena podstawowa (bez rabatu):', formatMoney(quote.grossTotal), {
+      marginBottom: 4,
+    }),
+  ]
+  stack[0].margin = [0, 12, 0, 4]
+
+  if (hasRabat) {
+    stack.push(
+      buildPriceSummaryRow('Cena z rabatem:', formatMoney(quote.totalPrice), {
+        valueColor: PRICE_GREEN,
+        marginBottom: 4,
+      })
+    )
+  }
+
+  stack.push(
+    buildPriceSummaryRow(
+      `Narzut trybu (${trybLabel}):`,
+      quote.surcharge > 0 ? `+${formatMoney(quote.surcharge)}` : formatMoney(0),
+      { marginBottom: 4 }
+    ),
+    {
+      text: [
+        { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
+        {
+          text: formatMoney(quote.totalPrice),
+          bold: true,
+          fontSize: 20,
+          color: totalColor,
+        },
+      ],
+      alignment: 'right',
+      noWrap: true,
+      margin: [0, 4, 0, 0],
+    }
+  )
+
   return {
     columns: [
       { width: '*', text: '' },
       {
-        width: 220,
-        stack: [
-          {
-            columns: [
-              { text: 'Suma pozycji:', width: '*' },
-              { text: formatMoney(quote.subtotal), alignment: 'right', width: 80 },
-            ],
-            margin: [0, 12, 0, 4],
-          },
-          quote.surcharge > 0
-            ? {
-                columns: [
-                  { text: 'Narzut trybu (łącznie):', width: '*' },
-                  { text: `+${formatMoney(quote.surcharge)}`, alignment: 'right', width: 80 },
-                ],
-                margin: [0, 0, 0, 4],
-              }
-            : { text: '' },
-          quote.discountAmount > 0
-            ? {
-                columns: [
-                  { text: `Rabat (${quote.procentRabatu}%):`, width: '*' },
-                  {
-                    text: `-${formatMoney(quote.discountAmount)}`,
-                    alignment: 'right',
-                    width: 80,
-                  },
-                ],
-                margin: [0, 0, 0, 4],
-              }
-            : { text: '' },
-          {
-            text: [
-              { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
-              {
-                text: formatMoney(quote.totalPrice),
-                bold: true,
-                fontSize: 20,
-                color: totalColor,
-              },
-            ],
-            alignment: 'right',
-            noWrap: true,
-            margin: [0, 4, 0, 0],
-          },
-        ],
+        width: 260,
+        stack,
       },
     ],
   }
