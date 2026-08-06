@@ -17,7 +17,7 @@ import { validateEmail, validatePhone, formatPhone } from './utils/contactValida
 import { buildOrderPayload } from './utils/buildOrderPayload'
 import { calcLineAreaM2, formatAreaM2, formatDimensions, normalizeIlosc, needsShortSide, calcAreaPerPieceM2 } from './utils/dimensions'
 import { readCatalogCache, writeCatalogCache } from './utils/catalogCache'
-import { applyRabatToTotal, enrichItemsWithRabat, enrichClientProfile, resolveClientFromKlienciRows } from './utils/clientLookup'
+import { enrichItemsWithRabat, enrichClientProfile, resolveClientFromKlienciRows, summarizeQuoteTotals } from './utils/clientLookup'
 import { getRodzajBannerMessage } from './utils/rodzajBanner'
 import { BINGLASS_LOGO_URL } from './constants'
 import './App.css'
@@ -455,8 +455,6 @@ function App() {
       const client = await resolveClientForCalculate(nipResult.normalized)
       const updatedLines = [...lines]
       const items = []
-      let subtotal = 0
-      let surcharge = 0
 
       for (let i = 0; i < parsedLines.length; i++) {
         const line = parsedLines[i]
@@ -480,12 +478,6 @@ function App() {
 
         const lineSubtotal = unitPrice * line.ilosc
         const procent = getTrybProcent(tryby, line.tryb)
-        const lineSurcharge = lineSubtotal * (procent / 100)
-        const lineTotal = lineSubtotal + lineSurcharge
-
-        subtotal += lineSubtotal
-        surcharge += lineSurcharge
-        updatedLines[i] = { ...updatedLines[i], cena: lineTotal }
 
         items.push({
           rodzaj: line.rodzaj,
@@ -500,19 +492,20 @@ function App() {
           area: line.areaNum,
           areaPerPiece: line.areaPerPiece,
           lineSubtotal,
-          lineSurcharge,
-          lineTotal,
         })
       }
 
       const uniqueTrybs = [...new Set(items.map((item) => item.tryb))]
       const trybLabel = uniqueTrybs.length === 1 ? uniqueTrybs[0] : 'Różne'
       const itemsWithRabat = enrichItemsWithRabat(items, client.procentRabatu)
-      const { grossTotal, subtotalAfterRabat, discountAmount, totalPrice } = applyRabatToTotal(
-        subtotal,
+      const {
+        subtotal: quoteSubtotal,
+        subtotalAfterRabat,
         surcharge,
-        client.procentRabatu
-      )
+        discountAmount,
+        grossTotal,
+        totalPrice,
+      } = summarizeQuoteTotals(itemsWithRabat)
 
       setLines(
         updatedLines.map((line, i) => ({
@@ -528,7 +521,7 @@ function App() {
         found: client.found,
         tryb: trybLabel,
         procent: uniqueTrybs.length === 1 ? items[0].procent : null,
-        subtotal,
+        subtotal: quoteSubtotal,
         surcharge,
         grossTotal,
         subtotalAfterRabat,

@@ -645,8 +645,7 @@
 }
 
 .result-cell--price,
-.result-cell--price-disc,
-.result-cell--price-total {
+.result-cell--price-disc {
   text-align: right;
   font-weight: 600;
   white-space: nowrap;
@@ -661,7 +660,14 @@
 }
 
 .result-cell--price-total {
-  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--accent-green);
+  white-space: nowrap;
 }
 
 .result-footer {

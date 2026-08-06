@@ -101,28 +101,34 @@ export function enrichClientProfile(client, history = {}) {
   }
 }
 
-export function applyRabatToLine(lineSubtotal, lineSurcharge, procentRabatu) {
+export function applyRabatToLine(lineSubtotal, trybProcent, procentRabatu) {
   const subtotal = Number(lineSubtotal) || 0
-  const surcharge = Number(lineSurcharge) || 0
   const rabat = Number(procentRabatu) || 0
+  const trybPct = Number(trybProcent) || 0
   const lineDiscount = rabat > 0 ? subtotal * (rabat / 100) : 0
   const lineSubtotalAfterRabat = subtotal - lineDiscount
+  const lineSurcharge = lineSubtotalAfterRabat * (trybPct / 100)
 
   return {
     lineDiscount,
     lineSubtotalAfterRabat,
-    lineTotalAfterRabat: lineSubtotalAfterRabat + surcharge,
+    lineSurcharge,
+    lineTotalAfterRabat: lineSubtotalAfterRabat + lineSurcharge,
   }
 }
 
 export function enrichItemsWithRabat(items, procentRabatu) {
   return items.map((item) => {
-    const { lineDiscount, lineSubtotalAfterRabat, lineTotalAfterRabat } = applyRabatToLine(
-      item.lineSubtotal,
-      item.lineSurcharge,
-      procentRabatu
-    )
-    return { ...item, lineDiscount, lineSubtotalAfterRabat, lineTotalAfterRabat }
+    const { lineDiscount, lineSubtotalAfterRabat, lineSurcharge, lineTotalAfterRabat } =
+      applyRabatToLine(item.lineSubtotal, item.procent, procentRabatu)
+    return {
+      ...item,
+      lineDiscount,
+      lineSubtotalAfterRabat,
+      lineSurcharge,
+      lineTotal: lineSubtotalAfterRabat + lineSurcharge,
+      lineTotalAfterRabat,
+    }
   })
 }
 
@@ -138,6 +144,24 @@ export function applyRabatToTotal(subtotal, surcharge, procentRabatu) {
     subtotalAfterRabat,
     discountAmount,
     totalPrice: subtotalAfterRabat + modeSurcharge,
+  }
+}
+
+export function summarizeQuoteTotals(items) {
+  const subtotal = items.reduce((sum, item) => sum + Number(item.lineSubtotal || 0), 0)
+  const subtotalAfterRabat = items.reduce(
+    (sum, item) => sum + Number(item.lineSubtotalAfterRabat || 0),
+    0
+  )
+  const surcharge = items.reduce((sum, item) => sum + Number(item.lineSurcharge || 0), 0)
+
+  return {
+    subtotal,
+    subtotalAfterRabat,
+    surcharge,
+    discountAmount: subtotal - subtotalAfterRabat,
+    grossTotal: subtotal + surcharge,
+    totalPrice: subtotalAfterRabat + surcharge,
   }
 }
 
