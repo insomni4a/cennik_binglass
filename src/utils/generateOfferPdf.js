@@ -133,10 +133,8 @@ const SQUARES_PER_ROW = 18
 const SQUARE_GAP = 6
 const SQUARE_ROW_GAP = 6
 const OFFER_POSITIONS_BASE_WIDTHS = [20, 44, 54, 44, 58, 11, 26]
-const OFFER_PRICE_COLUMN_WIDTH = 48
 const OFFER_RABAT_COLUMN_WIDTH = 52
 const OFFER_TRYB_COLUMN_WIDTH = 40
-const OFFER_TOTAL_COLUMN_WIDTH = 48
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -568,10 +566,8 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     { text: 'Wymiary', style: 'tableHeader', noWrap: true },
     { text: 'Ilość', style: 'tableHeader', alignment: 'right', noWrap: true },
     { text: 'm²', style: 'tableHeader', alignment: 'right', noWrap: true },
-    { text: 'Cena podst.', style: 'tableHeader', alignment: 'right', noWrap: true },
     ...(hasRabat ? [{ text: 'Po rabacie', style: 'tableHeader', alignment: 'right', noWrap: true }] : []),
     { text: 'Tryb', style: 'tableHeader', noWrap: true },
-    { text: 'Z trybem', style: 'tableHeader', alignment: 'right', noWrap: true },
   ]
 
   const tableBody = [
@@ -584,7 +580,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
       offerTableCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
       offerTableCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
       offerTableCell(formatAreaM2(item.area), { alignment: 'right' }),
-      offerTableCell(formatMoney(item.lineSubtotal), { alignment: 'right' }),
       ...(hasRabat
         ? [
             offerTableCell(formatMoney(item.lineSubtotalAfterRabat ?? item.lineSubtotal), {
@@ -594,10 +589,6 @@ function buildOfferTableBody(items, quote, startLp = 1) {
           ]
         : []),
       offerTableCell(`${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`),
-      offerTableCell(formatMoney(item.lineTotalAfterRabat ?? item.lineTotal), {
-        alignment: 'right',
-        bold: true,
-      }),
     ]),
   ]
 
@@ -605,19 +596,8 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     hasRabat,
     tableBody,
     widths: hasRabat
-      ? [
-          ...OFFER_POSITIONS_BASE_WIDTHS,
-          OFFER_PRICE_COLUMN_WIDTH,
-          OFFER_RABAT_COLUMN_WIDTH,
-          OFFER_TRYB_COLUMN_WIDTH,
-          OFFER_TOTAL_COLUMN_WIDTH,
-        ]
-      : [
-          ...OFFER_POSITIONS_BASE_WIDTHS,
-          OFFER_PRICE_COLUMN_WIDTH,
-          OFFER_TRYB_COLUMN_WIDTH,
-          OFFER_TOTAL_COLUMN_WIDTH,
-        ],
+      ? [...OFFER_POSITIONS_BASE_WIDTHS, OFFER_RABAT_COLUMN_WIDTH, OFFER_TRYB_COLUMN_WIDTH]
+      : [...OFFER_POSITIONS_BASE_WIDTHS, OFFER_TRYB_COLUMN_WIDTH],
   }
 }
 
