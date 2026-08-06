@@ -135,7 +135,8 @@ const SQUARE_ROW_GAP = 6
 const OFFER_POSITIONS_BASE_WIDTHS = [20, 44, 54, 44, 58, 11, 26]
 const OFFER_PRICE_COLUMN_WIDTH = 48
 const OFFER_RABAT_COLUMN_WIDTH = 52
-const OFFER_TRYB_COLUMN_WIDTH = 48
+const OFFER_TRYB_COLUMN_WIDTH = 40
+const OFFER_TOTAL_COLUMN_WIDTH = 48
 
 /** Kompaktowy rząd kwadratów (bez pustej kolumny po prawej) — do komórek tabeli podsumowania. */
 function buildInlineSquares(
@@ -570,6 +571,7 @@ function buildOfferTableBody(items, quote, startLp = 1) {
     { text: 'Cena podst.', style: 'tableHeader', alignment: 'right', noWrap: true },
     ...(hasRabat ? [{ text: 'Po rabacie', style: 'tableHeader', alignment: 'right', noWrap: true }] : []),
     { text: 'Tryb', style: 'tableHeader', noWrap: true },
+    { text: 'Z trybem', style: 'tableHeader', alignment: 'right', noWrap: true },
   ]
 
   const tableBody = [
@@ -582,16 +584,20 @@ function buildOfferTableBody(items, quote, startLp = 1) {
       offerTableCell(formatDimensions(item.width, item.height, item.shortSide), { bold: true }),
       offerTableCell(item.ilosc ?? 1, { bold: true, alignment: 'right' }),
       offerTableCell(formatAreaM2(item.area), { alignment: 'right' }),
-      offerTableCell(formatMoney(item.lineTotal), { alignment: 'right' }),
+      offerTableCell(formatMoney(item.lineSubtotal), { alignment: 'right' }),
       ...(hasRabat
         ? [
-            offerTableCell(formatMoney(item.lineTotalAfterRabat ?? item.lineTotal), {
+            offerTableCell(formatMoney(item.lineSubtotalAfterRabat ?? item.lineSubtotal), {
               alignment: 'right',
               style: 'priceGreen',
             }),
           ]
         : []),
       offerTableCell(`${item.tryb || ''}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`),
+      offerTableCell(formatMoney(item.lineTotalAfterRabat ?? item.lineTotal), {
+        alignment: 'right',
+        bold: true,
+      }),
     ]),
   ]
 
@@ -604,8 +610,14 @@ function buildOfferTableBody(items, quote, startLp = 1) {
           OFFER_PRICE_COLUMN_WIDTH,
           OFFER_RABAT_COLUMN_WIDTH,
           OFFER_TRYB_COLUMN_WIDTH,
+          OFFER_TOTAL_COLUMN_WIDTH,
         ]
-      : [...OFFER_POSITIONS_BASE_WIDTHS, OFFER_PRICE_COLUMN_WIDTH, OFFER_TRYB_COLUMN_WIDTH],
+      : [
+          ...OFFER_POSITIONS_BASE_WIDTHS,
+          OFFER_PRICE_COLUMN_WIDTH,
+          OFFER_TRYB_COLUMN_WIDTH,
+          OFFER_TOTAL_COLUMN_WIDTH,
+        ],
   }
 }
 
@@ -893,8 +905,9 @@ function buildPriceSummaryRow(label, value, { valueColor, marginBottom = 4 } = {
 function buildPriceSummary(quote, hasRabat) {
   const totalColor = hasRabat ? PRICE_GREEN : '#166534'
   const trybLabel = formatQuoteTrybLabel(quote)
+  const subtotalAfterRabat = quote.subtotalAfterRabat ?? quote.subtotal - (quote.discountAmount ?? 0)
   const stack = [
-    buildPriceSummaryRow('Cena podstawowa (bez rabatu):', formatMoney(quote.grossTotal), {
+    buildPriceSummaryRow('Cena podstawowa (bez rabatu):', formatMoney(quote.subtotal), {
       marginBottom: 4,
     }),
   ]
@@ -902,7 +915,7 @@ function buildPriceSummary(quote, hasRabat) {
 
   if (hasRabat) {
     stack.push(
-      buildPriceSummaryRow('Cena z rabatem:', formatMoney(quote.totalPrice), {
+      buildPriceSummaryRow('Cena z rabatem:', formatMoney(subtotalAfterRabat), {
         valueColor: PRICE_GREEN,
         marginBottom: 4,
       })
@@ -919,7 +932,7 @@ function buildPriceSummary(quote, hasRabat) {
       text: [
         { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
         {
-          text: formatMoney(quote.totalPrice),
+          text: formatMoney((hasRabat ? subtotalAfterRabat : quote.subtotal) + quote.surcharge),
           bold: true,
           fontSize: 20,
           color: totalColor,

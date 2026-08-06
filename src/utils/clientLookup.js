@@ -101,31 +101,43 @@ export function enrichClientProfile(client, history = {}) {
   }
 }
 
-export function applyRabatToLine(lineTotal, procentRabatu) {
-  const gross = Number(lineTotal) || 0
+export function applyRabatToLine(lineSubtotal, lineSurcharge, procentRabatu) {
+  const subtotal = Number(lineSubtotal) || 0
+  const surcharge = Number(lineSurcharge) || 0
   const rabat = Number(procentRabatu) || 0
-  const lineDiscount = rabat > 0 ? gross * (rabat / 100) : 0
+  const lineDiscount = rabat > 0 ? subtotal * (rabat / 100) : 0
+  const lineSubtotalAfterRabat = subtotal - lineDiscount
+
   return {
     lineDiscount,
-    lineTotalAfterRabat: gross - lineDiscount,
+    lineSubtotalAfterRabat,
+    lineTotalAfterRabat: lineSubtotalAfterRabat + surcharge,
   }
 }
 
 export function enrichItemsWithRabat(items, procentRabatu) {
   return items.map((item) => {
-    const { lineDiscount, lineTotalAfterRabat } = applyRabatToLine(item.lineTotal, procentRabatu)
-    return { ...item, lineDiscount, lineTotalAfterRabat }
+    const { lineDiscount, lineSubtotalAfterRabat, lineTotalAfterRabat } = applyRabatToLine(
+      item.lineSubtotal,
+      item.lineSurcharge,
+      procentRabatu
+    )
+    return { ...item, lineDiscount, lineSubtotalAfterRabat, lineTotalAfterRabat }
   })
 }
 
 export function applyRabatToTotal(subtotal, surcharge, procentRabatu) {
-  const grossTotal = subtotal + surcharge
+  const baseSubtotal = Number(subtotal) || 0
+  const modeSurcharge = Number(surcharge) || 0
   const rabat = Number(procentRabatu) || 0
-  const discountAmount = rabat > 0 ? grossTotal * (rabat / 100) : 0
+  const discountAmount = rabat > 0 ? baseSubtotal * (rabat / 100) : 0
+  const subtotalAfterRabat = baseSubtotal - discountAmount
+
   return {
-    grossTotal,
+    grossTotal: baseSubtotal + modeSurcharge,
+    subtotalAfterRabat,
     discountAmount,
-    totalPrice: grossTotal - discountAmount,
+    totalPrice: subtotalAfterRabat + modeSurcharge,
   }
 }
 

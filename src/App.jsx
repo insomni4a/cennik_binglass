@@ -508,7 +508,7 @@ function App() {
       const uniqueTrybs = [...new Set(items.map((item) => item.tryb))]
       const trybLabel = uniqueTrybs.length === 1 ? uniqueTrybs[0] : 'Różne'
       const itemsWithRabat = enrichItemsWithRabat(items, client.procentRabatu)
-      const { grossTotal, discountAmount, totalPrice } = applyRabatToTotal(
+      const { grossTotal, subtotalAfterRabat, discountAmount, totalPrice } = applyRabatToTotal(
         subtotal,
         surcharge,
         client.procentRabatu
@@ -531,6 +531,7 @@ function App() {
         subtotal,
         surcharge,
         grossTotal,
+        subtotalAfterRabat,
         discountAmount,
         totalPrice,
         items: itemsWithRabat,
@@ -1218,11 +1219,12 @@ function App() {
                 <div className="result-cell result-cell--lp">Lp.</div>
                 <div className="result-cell result-cell--pos">Pozycja</div>
                 <div className="result-cell result-cell--dim">Wymiary</div>
-                <div className="result-cell result-cell--tryb">Tryb</div>
                 <div className="result-cell result-cell--price">Cena</div>
                 {quote.discountAmount > 0 && (
                   <div className="result-cell result-cell--price-disc">Po rabacie</div>
                 )}
+                <div className="result-cell result-cell--tryb">Tryb</div>
+                <div className="result-cell result-cell--price-total">Z trybem</div>
               </div>
 
               {quote.items.map((item, i) => (
@@ -1243,20 +1245,23 @@ function App() {
                     {formatDimensions(item.width, item.height, item.shortSide)} × {item.ilosc ?? 1} szt.
                     <span className="result-pos-sub">{formatAreaM2(item.area)} m²</span>
                   </div>
-                  <div className="result-cell result-cell--tryb">
+                  <div className="result-cell result-cell--price" data-label="Cena">
+                    {item.lineSubtotal.toFixed(2)} zł
+                  </div>
+                  {quote.discountAmount > 0 && (
+                    <div className="result-cell result-cell--price-disc" data-label="Po rabacie">
+                      {item.lineSubtotalAfterRabat.toFixed(2)} zł
+                    </div>
+                  )}
+                  <div className="result-cell result-cell--tryb" data-label="Tryb">
                     {item.tryb}
                     {item.procent > 0 && (
                       <span className="result-pos-sub">+{item.procent}%</span>
                     )}
                   </div>
-                  <div className="result-cell result-cell--price">
-                    {item.lineTotal.toFixed(2)} zł
+                  <div className="result-cell result-cell--price-total" data-label="Z trybem">
+                    {(item.lineTotalAfterRabat ?? item.lineTotal).toFixed(2)} zł
                   </div>
-                  {quote.discountAmount > 0 && (
-                    <div className="result-cell result-cell--price-disc">
-                      {item.lineTotalAfterRabat.toFixed(2)} zł
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -1279,8 +1284,8 @@ function App() {
                 )}
                 {quote.discountAmount > 0 && (
                   <div className="result-footer-row">
-                    <span>Rabat ({quote.procentRabatu}%)</span>
-                    <span>−{quote.discountAmount.toFixed(2)} zł</span>
+                    <span>Cena z rabatem</span>
+                    <span>{quote.subtotalAfterRabat.toFixed(2)} zł</span>
                   </div>
                 )}
               </div>

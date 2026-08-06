@@ -590,7 +590,7 @@
 
 .result-table-row {
   display: grid;
-  grid-template-columns: 32px 1.4fr 1fr 0.75fr 88px 88px;
+  grid-template-columns: 32px 1.4fr 1fr 76px 76px 0.7fr 76px;
   gap: 0.45rem;
   align-items: center;
   padding: 0.55rem 0.65rem;
@@ -599,7 +599,7 @@
 }
 
 .result-table-row--no-discount {
-  grid-template-columns: 32px 1.4fr 1fr 0.75fr 96px;
+  grid-template-columns: 32px 1.4fr 1fr 76px 0.7fr 76px;
 }
 
 .result-table-row--header {
@@ -645,7 +645,8 @@
 }
 
 .result-cell--price,
-.result-cell--price-disc {
+.result-cell--price-disc,
+.result-cell--price-total {
   text-align: right;
   font-weight: 600;
   white-space: nowrap;
@@ -657,6 +658,10 @@
 
 .result-cell--price-disc {
   color: var(--accent-green);
+}
+
+.result-cell--price-total {
+  color: var(--text-primary);
 }
 
 .result-footer {

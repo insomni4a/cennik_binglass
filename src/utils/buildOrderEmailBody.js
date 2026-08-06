@@ -10,12 +10,13 @@ export function buildOrderEmailBody(order) {
     const trybInfo = item.tryb
       ? ` · ${item.tryb}${item.procent > 0 ? ` (+${item.procent}%)` : ''}`
       : ''
-    const priceBase = Number(item.lineTotal || 0)
-    const priceAfter = Number(item.lineTotalAfterRabat ?? priceBase)
+    const priceBase = Number(item.lineSubtotal || 0)
+    const priceAfter = Number(item.lineSubtotalAfterRabat ?? priceBase)
+    const priceWithTryb = Number(item.lineTotalAfterRabat ?? item.lineTotal ?? priceAfter)
     const priceText =
       priceAfter !== priceBase
-        ? `${priceBase.toFixed(2)} zł → ${priceAfter.toFixed(2)} zł`
-        : `${priceBase.toFixed(2)} zł`
+        ? `${priceBase.toFixed(2)} zł → ${priceAfter.toFixed(2)} zł (z trybem: ${priceWithTryb.toFixed(2)} zł)`
+        : `${priceWithTryb.toFixed(2)} zł`
     return `${index + 1}. ${item.rodzaj} / ${item.produkt} / ${item.dodatek} — ${formatDimensions(item.width, item.height, item.shortSide)} × ${qty} szt. (${formatAreaM2(area)} m²)${trybInfo} — ${priceText}`
   })
 
