@@ -621,24 +621,12 @@ function buildRodzajAreaSummary(items, rodzaj, produkt) {
 }
 
 const SUMMARY_TABLE_FONT = 5
-const SPEC_FINAL_SUMMARY_FONT = 6
-const SPEC_FINAL_SUMMARY_SQUARE_SIZE = SQUARE_ICON_SIZE / 2
-const SPEC_FINAL_SUMMARY_SQUARE_GAP = 3
-const SPEC_FINAL_SUMMARY_ROW_PAD = 1
-const SPEC_FINAL_SUMMARY_COL_COUNT = 5
+const SPEC_FINAL_SUMMARY_FONT = 9
+const SPEC_FINAL_SUMMARY_ROW_PAD = 3
+const SPEC_FINAL_SUMMARY_COL_COUNT = 4
 
-function getSpecFinalSummarySquareStackHeight(ilosc) {
-  const total = Math.max(1, Number(ilosc ?? 1))
-  const squareRows = Math.ceil(total / SQUARES_PER_ROW)
-  if (squareRows <= 1) return SPEC_FINAL_SUMMARY_SQUARE_SIZE
-  return (
-    squareRows * SPEC_FINAL_SUMMARY_SQUARE_SIZE +
-    (squareRows - 1) * SPEC_FINAL_SUMMARY_SQUARE_GAP
-  )
-}
-
-function getSpecFinalSummaryRowHeight(ilosc = 1) {
-  return getSpecFinalSummarySquareStackHeight(ilosc) + SPEC_FINAL_SUMMARY_ROW_PAD * 2
+function getSpecFinalSummaryRowHeight() {
+  return Math.ceil(SPEC_FINAL_SUMMARY_FONT * 1.4) + SPEC_FINAL_SUMMARY_ROW_PAD * 2
 }
 
 function buildSpecFinalSummaryCell(text, { bold = false } = {}) {
@@ -672,49 +660,30 @@ function buildSpecFinalSummaryUwagiRow(colCount) {
 
 function buildSpecFinalSummaryTable(items, { pageBreak = false } = {}) {
   const colCount = SPEC_FINAL_SUMMARY_COL_COUNT
-  const headerHeight = getSpecFinalSummaryRowHeight(1)
-  const heights = [headerHeight]
+  const rowHeight = getSpecFinalSummaryRowHeight()
   const tableBody = [
     [
       buildSpecFinalSummaryHeaderCell('Dodatek'),
       buildSpecFinalSummaryHeaderCell('Wymiar'),
       buildSpecFinalSummaryHeaderCell('Ilość'),
       buildSpecFinalSummaryHeaderCell('m²'),
-      buildSpecFinalSummaryHeaderCell(''),
     ],
-    ...items.flatMap((item) => {
-      const rowHeight = getSpecFinalSummaryRowHeight(item.ilosc)
-      heights.push(rowHeight, rowHeight)
-
-      return [
-        [
-          buildSpecFinalSummaryCell(item.dodatek),
-          buildSpecFinalSummaryCell(formatDimensions(item.width, item.height, item.shortSide)),
-          buildSpecFinalSummaryCell(`${item.ilosc ?? 1} szt`),
-          buildSpecFinalSummaryCell(`${formatAreaM2(item.area)} m2`),
-          {
-            stack: [
-              buildInlineSquares(item.ilosc, {
-                iconSize: SPEC_FINAL_SUMMARY_SQUARE_SIZE,
-                gap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
-                rowGap: SPEC_FINAL_SUMMARY_SQUARE_GAP,
-                margin: [0, 0, 0, 0],
-              }),
-            ],
-            alignment: 'left',
-            margin: [2, SPEC_FINAL_SUMMARY_ROW_PAD, 2, SPEC_FINAL_SUMMARY_ROW_PAD],
-          },
-        ],
-        buildSpecFinalSummaryUwagiRow(colCount),
-      ]
-    }),
+    ...items.flatMap((item) => [
+      [
+        buildSpecFinalSummaryCell(item.dodatek),
+        buildSpecFinalSummaryCell(formatDimensions(item.width, item.height, item.shortSide)),
+        buildSpecFinalSummaryCell(`${item.ilosc ?? 1} szt`),
+        buildSpecFinalSummaryCell(`${formatAreaM2(item.area)} m2`),
+      ],
+      buildSpecFinalSummaryUwagiRow(colCount),
+    ]),
   ]
 
   const tableBlock = {
     table: {
       headerRows: 1,
-      widths: ['auto', 'auto', 'auto', 'auto', '*'],
-      heights,
+      widths: ['*', '*', 64, 80],
+      heights: Array.from({ length: tableBody.length }, () => rowHeight),
       body: tableBody,
     },
     layout: SPEC_TABLE_LAYOUT,
