@@ -711,7 +711,7 @@ function buildSpecFinalSummaryTable(items, { pageBreak = false } = {}) {
   const tableBlock = {
     table: {
       headerRows: 1,
-      widths: [79, 79, 79, 79, '*'],
+      widths: [35, 79, 29, 32, '*'],
       heights,
       body: tableBody,
     },
