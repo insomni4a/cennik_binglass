@@ -15,7 +15,7 @@ const DRAWING_DESC_FONT = 9
 const OFFER_TABLE_FONT = 6
 
 function formatMoney(value) {
-  return `${Number(value).toFixed(2)} zł`
+  return `${Number(value).toFixed(2)} zł netto`
 }
 
 function sumItemsAreaM2(items) {
@@ -880,10 +880,13 @@ function buildPriceSummaryRow(label, value, { valueColor, marginBottom = 4 } = {
   }
 }
 
-function buildPriceSummary(quote, hasRabat) {
+function buildPriceSummary(quote, hasRabat, totalAreaM2) {
   const totalColor = hasRabat ? PRICE_GREEN : '#166534'
   const trybLabel = formatQuoteTrybLabel(quote)
   const subtotalAfterRabat = quote.subtotalAfterRabat ?? quote.subtotal - (quote.discountAmount ?? 0)
+  const rawTotal = (hasRabat ? subtotalAfterRabat : quote.subtotal) + quote.surcharge
+  const totalRounded = Math.ceil(rawTotal)
+  const pricePerM2 = totalAreaM2 > 0 ? totalRounded / totalAreaM2 : 0
   const stack = [
     buildPriceSummaryRow('Cena podstawowa (bez rabatu):', formatMoney(quote.subtotal), {
       marginBottom: 4,
@@ -907,17 +910,28 @@ function buildPriceSummary(quote, hasRabat) {
       { marginBottom: 4 }
     ),
     {
-      text: [
-        { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
+      stack: [
         {
-          text: formatMoney((hasRabat ? subtotalAfterRabat : quote.subtotal) + quote.surcharge),
-          bold: true,
-          fontSize: 20,
+          text: [
+            { text: 'RAZEM: ', bold: true, fontSize: 20, color: totalColor },
+            {
+              text: formatMoney(totalRounded),
+              bold: true,
+              fontSize: 20,
+              color: totalColor,
+            },
+          ],
+          alignment: 'right',
+          noWrap: true,
+        },
+        {
+          text: `${pricePerM2.toFixed(2)} zł/m² netto`,
+          alignment: 'right',
+          fontSize: 11,
           color: totalColor,
+          margin: [0, 2, 0, 0],
         },
       ],
-      alignment: 'right',
-      noWrap: true,
       margin: [0, 4, 0, 0],
     }
   )
@@ -1091,7 +1105,7 @@ function buildOfferOnlyDocDefinition(quote) {
     globalLp += group.items.length
   })
 
-  content.push(buildTotalAreaBlock(totalAreaM2), buildPriceSummary(quote, hasRabat))
+  content.push(buildTotalAreaBlock(totalAreaM2), buildPriceSummary(quote, hasRabat, totalAreaM2))
 
   globalLp = 1
   rodzajGroups.forEach((group) => {
