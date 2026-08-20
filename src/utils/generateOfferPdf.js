@@ -925,7 +925,7 @@ function buildPriceSummary(quote, hasRabat, totalAreaM2) {
           noWrap: true,
         },
         {
-          text: `${pricePerM2.toFixed(2)} zł/m² netto`,
+          text: `${Math.round(pricePerM2)} zł/m² netto`,
           alignment: 'right',
           fontSize: 11,
           color: totalColor,
